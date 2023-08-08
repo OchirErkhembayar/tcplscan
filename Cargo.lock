@@ -5,3 +5,10 @@ version = 3
 [[package]]
 name = "scanner"
 version = "0.1.0"
+dependencies = [
+ "tokenizer",
+]
+
+[[package]]
+name = "tokenizer"
+version = "0.1.0"

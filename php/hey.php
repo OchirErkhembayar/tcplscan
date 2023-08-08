@@ -1,4 +1,7 @@
 <?php
+
 $var = 'Hi!'
 
-\printf('%s', $var);
+if (true) {
+    \printf('%s', $var);
+}
