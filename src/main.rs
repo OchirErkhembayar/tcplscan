@@ -7,6 +7,8 @@ use std::{
 };
 use tokenizer::{TokenType, Tokenizer};
 
+mod tokenizer;
+
 #[derive(Debug)]
 struct File {
     path: String,
@@ -56,8 +58,8 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, file: &mut File, files:
                 process::exit(1);
             });
             println!(
-                "Last accessed {:?} minutes ago",
-                now.duration_since(accessed).unwrap().as_secs() / 60
+                "Last accessed {:?} hours ago",
+                now.duration_since(accessed).unwrap().as_secs() / 60 / 60
             );
             let mut complexity: HashMap<TokenType, u8> = HashMap::new();
             for token in Tokenizer::new(&(content.chars().collect::<Vec<_>>())) {
@@ -104,6 +106,17 @@ fn main() {
         }
     };
 
+    let top_files: usize = match args.get(3) {
+        Some(num) => {
+            println!("Getting top {num} files");
+            num.parse().unwrap_or_else(|err| {
+                eprintln!("ERROR: Failed to parse {num} into a number, {err}");
+                process::exit(1);
+            })
+        }
+        None => 3
+    };
+
     let dir_entry = fs::read_dir(path).unwrap_or_else(|err| {
         eprintln!("ERROR: Failed to read directory, {err}");
         process::exit(1);
@@ -117,7 +130,7 @@ fn main() {
 
     files.sort_by(|a, b| b.complexity.values().sum::<u8>().cmp(&a.complexity.values().sum::<u8>()));
 
-    for (i, file) in files.iter().take(3).enumerate() {
+    for (i, file) in files.iter().take(top_files).enumerate() {
         println!("{} complexity file: {:?}", i + 1, file);
     }
 }

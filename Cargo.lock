@@ -3,12 +3,5 @@
 version = 3
 
 [[package]]
-name = "scanner"
-version = "0.1.0"
-dependencies = [
- "tokenizer",
-]
-
-[[package]]
-name = "tokenizer"
+name = "tcplscan"
 version = "0.1.0"
