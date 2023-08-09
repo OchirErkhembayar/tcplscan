@@ -1,18 +1,63 @@
+use lazy_static::lazy_static;
+use std::collections::HashMap;
+
+lazy_static! {
+    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
+        let mut map = HashMap::new();
+        map.insert("and", TokenType::And);
+        map.insert("or", TokenType::Or);
+        map.insert("xor", TokenType::Xor);
+        map.insert("class", TokenType::Class);
+        map.insert("else", TokenType::Else);
+        map.insert("false", TokenType::False);
+        map.insert("function", TokenType::Function);
+        map.insert("for", TokenType::For);
+        map.insert("foreach", TokenType::Foreach);
+        map.insert("if", TokenType::If);
+        map.insert("elseif", TokenType::Elseif);
+        map.insert("while", TokenType::While);
+        map.insert("match", TokenType::Match);
+        map.insert("switch", TokenType::Switch);
+        map.insert("declare", TokenType::Declare);
+        map.insert("strict_types", TokenType::StrictTypes);
+        map.insert("namespace", TokenType::Namespace);
+        map.insert("class", TokenType::Class);
+        map
+    };
+}
+
+pub fn match_keyword(keyword: &str) -> Option<TokenType> {
+    match KEYWORDS.get(keyword) {
+        Some(keyword) => Some(*keyword),
+        None => None
+    }
+}
+
+#[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]
 pub enum TokenType {
+    PhpTag,
+
     // Single character tokens
     LeftParen,
     RightParen,
     LeftBrace,
     RightBrace,
+    LeftBracket,
+    RightBracket,
     Comma,
     Dot,
     Minus,
     Plus,
     Semicolon,
     Slash,
-    Start,
+    Star,
     Question,
     Colon,
+    Pipe,
+    BitwiseAnd,
+    Hash,
+    Reference,
+    Modulo,
 
     // One or two... or three... character tokens
     Bang,
@@ -25,13 +70,16 @@ pub enum TokenType {
     GreaterEqual,
     Less,
     LessEqual,
+    BackSlash,
+    OrOperator,
+    AndOperator,
 
     // Literals
     Identifier,
     String,
     Integer,
     Number, // Because I don't care about int/float for calculating complexity. Hope I don't regret
-    
+
     // Keywords
     And,
     Or,
@@ -40,27 +88,23 @@ pub enum TokenType {
     Else, // Care
     False,
     Function, // Care
-    For, // Care
-    Foreach, // Care
-    If, // Care
-    Else, // Care
-    Elseif, // Care
-    Var,
-    While, // Care
-    Match, // Care
+    For,      // Care
+    Foreach,  // Care
+    If,       // Care
+    Elseif,   // Care
+    While,  // Care
+    Match,  // Care
     Switch, // Care
-    Case, // Care
+    Case,   // Care
     Break,
-    Try, // Care
-    Catch, // Care
+    Try,     // Care
+    Catch,   // Care
     Finally, // Care
     Const,
     Return,
     Throw, // Care
     New,
     Clone,
-    Die,
-    Empty,
     EndSwitch,
     Final,
     Include,
@@ -93,7 +137,9 @@ pub enum TokenType {
     Implements,
     Interface,
     Static,
-    
+    StrictTypes,
+    Namespace,
+
     // Function keywords
     Die,
     Empty,

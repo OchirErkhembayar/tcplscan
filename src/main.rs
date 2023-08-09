@@ -5,20 +5,22 @@ use std::{
     process,
     time::SystemTime,
 };
-use tokenizer::{Keyword, Tokenizer};
+use token::TokenType;
+use tokenizer::Tokenizer;
 
 mod detector;
 mod git;
+mod token;
 mod tokenizer;
 
 #[derive(Debug)]
 struct File {
     path: String,
-    complexity: HashMap<Keyword, u8>,
+    complexity: HashMap<TokenType, u32>,
 }
 
 impl File {
-    fn new(path: &str, complexity: HashMap<Keyword, u8>) -> Self {
+    fn new(path: &str, complexity: HashMap<TokenType, u32>) -> Self {
         Self {
             path: path.to_string(),
             complexity,
@@ -63,7 +65,7 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
                 "Last accessed {:?} hours ago",
                 now.duration_since(accessed).unwrap().as_secs() / 60 / 60
             );
-            let mut complexity: HashMap<Keyword, u8> = HashMap::new();
+            let mut complexity: HashMap<TokenType, u32> = HashMap::new();
             for token in Tokenizer::new(&(content.chars().collect::<Vec<_>>())) {
                 complexity
                     .entry(token.token_type)
@@ -132,11 +134,16 @@ fn main() {
     files.sort_by(|a, b| {
         b.complexity
             .values()
-            .sum::<u8>()
-            .cmp(&a.complexity.values().sum::<u8>())
+            .sum::<u32>()
+            .cmp(&a.complexity.values().sum::<u32>())
     });
 
     for (i, file) in files.iter().take(top_files).enumerate() {
         println!("{} complexity file: {:?}", i + 1, file);
     }
+}
+
+fn error(msg: &str, line: usize) {
+    eprintln!("ERR: line: {line} {msg}");
+    process::exit(1);
 }
