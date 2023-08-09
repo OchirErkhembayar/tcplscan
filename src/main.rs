@@ -5,18 +5,20 @@ use std::{
     process,
     time::SystemTime,
 };
-use tokenizer::{TokenType, Tokenizer};
+use tokenizer::{Keyword, Tokenizer};
 
+mod detector;
+mod git;
 mod tokenizer;
 
 #[derive(Debug)]
 struct File {
     path: String,
-    complexity: HashMap<TokenType, u8>,
+    complexity: HashMap<Keyword, u8>,
 }
 
 impl File {
-    fn new(path: &str, complexity: HashMap<TokenType, u8>) -> Self {
+    fn new(path: &str, complexity: HashMap<Keyword, u8>) -> Self {
         Self {
             path: path.to_string(),
             complexity,
@@ -24,7 +26,7 @@ impl File {
     }
 }
 
-fn read_dir(dir_entry: ReadDir, extension: Option<&str>, file: &mut File, files: &mut Vec<File>) {
+fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) {
     dir_entry.for_each(|entry| {
         let entry = entry.unwrap_or_else(|err| {
             eprintln!("ERROR: Failed to parse directory entry, {err}");
@@ -61,7 +63,7 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, file: &mut File, files:
                 "Last accessed {:?} hours ago",
                 now.duration_since(accessed).unwrap().as_secs() / 60 / 60
             );
-            let mut complexity: HashMap<TokenType, u8> = HashMap::new();
+            let mut complexity: HashMap<Keyword, u8> = HashMap::new();
             for token in Tokenizer::new(&(content.chars().collect::<Vec<_>>())) {
                 complexity
                     .entry(token.token_type)
@@ -80,7 +82,7 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, file: &mut File, files:
                 eprintln!("ERROR: Failed to read directory, {err}");
                 process::exit(1);
             });
-            read_dir(dir_entry, extension, file, files);
+            read_dir(dir_entry, extension, files);
         }
     });
 }
@@ -114,7 +116,7 @@ fn main() {
                 process::exit(1);
             })
         }
-        None => 3
+        None => 3,
     };
 
     let dir_entry = fs::read_dir(path).unwrap_or_else(|err| {
@@ -122,13 +124,17 @@ fn main() {
         process::exit(1);
     });
 
-    let mut file = File::new("", HashMap::new());
     let mut files: Vec<File> = Vec::new();
 
-    read_dir(dir_entry, extension, &mut file, &mut files);
+    read_dir(dir_entry, extension, &mut files);
     println!("Finished scanning.");
 
-    files.sort_by(|a, b| b.complexity.values().sum::<u8>().cmp(&a.complexity.values().sum::<u8>()));
+    files.sort_by(|a, b| {
+        b.complexity
+            .values()
+            .sum::<u8>()
+            .cmp(&a.complexity.values().sum::<u8>())
+    });
 
     for (i, file) in files.iter().take(top_files).enumerate() {
         println!("{} complexity file: {:?}", i + 1, file);
