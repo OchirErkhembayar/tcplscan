@@ -58,6 +58,7 @@ pub enum TokenType {
     Hash,
     Reference,
     Modulo,
+    AtSign,
 
     // One or two... or three... character tokens
     Bang,

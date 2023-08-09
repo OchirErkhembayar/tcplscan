@@ -259,6 +259,7 @@ impl<'a> Tokenizer<'a> {
             '"' => self.string('"'),
             '\'' => self.string('\''),
             '0'..='9' => self.number(),
+            '@' => self.make_token(TokenType::AtSign, "@".to_string()),
             '_' | 'a'..='z' | 'A'..='Z' => self.identifier(char),
             '$' => self.variable(),
             _ => {
