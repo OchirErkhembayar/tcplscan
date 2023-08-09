@@ -8,8 +8,8 @@ use std::{
 use token::TokenType;
 use tokenizer::Tokenizer;
 
-mod scanner;
 mod git;
+mod parser;
 mod token;
 mod tokenizer;
 
