@@ -6,11 +6,12 @@ use crate::{error, token::{TokenType, match_keyword}};
 pub struct Token {
     pub token_type: TokenType,
     pub line: usize,
+    pub lexeme: String,
 }
 
 impl Token {
-    fn new(token_type: TokenType, line: usize) -> Self {
-        Self { token_type, line }
+    fn new(token_type: TokenType, line: usize, lexeme: String) -> Self {
+        Self { token_type, line, lexeme }
     }
 }
 
@@ -36,13 +37,20 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn next_char(&mut self) -> Option<char> {
+    fn next_char_opt(&mut self) -> Option<char> {
         let char = match self.code.get(0) {
             Some(char) => char,
             None => return None,
         };
         self.advance();
         Some(*char)
+    }
+
+    fn next_char(&mut self) -> char {
+        self.next_char_opt().unwrap_or_else(|| {
+            error("Character missing", self.line);
+            process::exit(1);
+        })
     }
 
     fn peek(&self) -> Option<&char> {
@@ -61,53 +69,72 @@ impl<'a> Tokenizer<'a> {
         false
     }
 
-    fn make_token(&self, token_type: TokenType) -> Token {
-        Token::new(token_type, self.line)
+    fn make_token(&self, token_type: TokenType, lexeme: String) -> Token {
+        Token::new(token_type, self.line, lexeme)
     }
 
     fn variable(&mut self) -> Token {
+        let mut variable = String::from("$");
         while self.peek().is_some_and(|c| c.is_alphanumeric() || c == &'_') {
-            self.advance();
+            variable.push(self.next_char());
         }
 
-        self.make_token(TokenType::Identifier)
+        self.make_token(TokenType::Identifier, variable)
     }
     
     fn string(&mut self, quote_type: char) -> Token {
-        println!("String! {}{}{}{} line: {}", self.code[0], self.code[1], self.code[2], self.code[3], self.line);
+        let mut string = String::new();
         let mut previous = *self.peek().unwrap(); // Fix this
-        while !self.code.is_empty() && !(previous != '\\' && self.peek().is_some_and(|c| c == &quote_type)) {
-            previous = self.next_char().unwrap();
+        let mut escaped = false;
+        while !self.code.is_empty() && !(!escaped && self.peek().is_some_and(|c| c == &quote_type)) {
+            previous = self.next_char();
+            if previous == '\\' {
+                escaped = !escaped;
+            } else {
+                escaped = false;
+            }
+            string.push(previous);
         }
         if self.code.is_empty() {
             error("Unterminated string", self.line);
         }
         self.advance();
 
-        self.make_token(TokenType::String)
+        self.make_token(TokenType::String, string)
     }
 
     fn number(&mut self) -> Token {
+        let mut string = String::new();
         while self.peek().is_some_and(|c| c.is_ascii_digit()) {
-            self.advance();
+            string.push(self.next_char());
         }
         if self.peek().is_some_and(|c| c == &'.') {
-            self.advance();
+            string.push(self.next_char());
             while self.peek().is_some_and(|c| c.is_ascii_digit()) {
-                self.advance();
+                string.push(self.next_char());
             }
         }
 
-        self.make_token(TokenType::Number)
+        self.make_token(TokenType::Number, string)
     }
 
     fn identifier(&mut self, start: char) -> Token {
         let mut word = start.to_string();
         while self.peek().is_some_and(|c| c.is_alphanumeric() || c == &'_') {
-            word.push(self.next_char().unwrap());
+            word.push(self.next_char());
         }
 
-        self.make_token(match_keyword(word.as_str()).unwrap_or_else(|| TokenType::Identifier))
+        self.make_token(match_keyword(word.as_str()).unwrap_or_else(|| TokenType::Identifier), word)
+    }
+
+    fn here_doc(&mut self) -> Token {
+        let mut doc = String::new();
+        while self.peek().is_some_and(|c| c != &';') {
+            doc.push(self.next_char());
+        }
+        self.advance();
+
+        self.make_token(TokenType::HereDoc, doc)
     }
 }
 
@@ -121,30 +148,28 @@ impl<'a> Iterator for Tokenizer<'a> {
 
 impl<'a> Tokenizer<'a> {
     fn scan_token(&mut self) -> Option<Token> {
-        let char = match self.next_char() {
+        let char = match self.next_char_opt() {
             Some(char) => char,
             None => return None,
         };
         let token = match char {
             ' ' | '\r' | '\t' => return self.scan_token(),
             '\n' => {
-                self.line += 1;
                 return self.scan_token();
             }
-            '{' => self.make_token(TokenType::LeftBrace),
-            '}' => self.make_token(TokenType::RightBrace),
-            '(' => self.make_token(TokenType::LeftParen),
-            ')' => self.make_token(TokenType::RightParen),
-            '[' => self.make_token(TokenType::LeftBracket),
-            ']' => self.make_token(TokenType::RightBracket),
-            ',' => self.make_token(TokenType::Comma),
-            '.' => self.make_token(TokenType::Dot),
-            '-' => self.make_token(TokenType::Minus),
-            '+' => self.make_token(TokenType::Plus),
-            ';' => self.make_token(TokenType::Semicolon),
-            '#' => self.make_token(TokenType::Hash),
+            '{' => self.make_token(TokenType::LeftBrace, "{".to_string()),
+            '}' => self.make_token(TokenType::RightBrace, "}".to_string()),
+            '(' => self.make_token(TokenType::LeftParen, "(".to_string()),
+            ')' => self.make_token(TokenType::RightParen, ")".to_string()),
+            '[' => self.make_token(TokenType::LeftBracket, "[".to_string()),
+            ']' => self.make_token(TokenType::RightBracket, "]".to_string()),
+            ',' => self.make_token(TokenType::Comma, ",".to_string()),
+            '.' => self.make_token(TokenType::Dot, ".".to_string()),
+            '-' => self.make_token(TokenType::Minus, "-".to_string()),
+            '+' => self.make_token(TokenType::Plus, "+".to_string()),
+            ';' => self.make_token(TokenType::Semicolon, ";".to_string()),
+            '#' => self.make_token(TokenType::Hash, "#".to_string()),
             '/' => {
-                println!("Started a slash line: {}, char: {}", self.line, self.code[0]);
                 if self.match_char('*') {
                     while !(self.code.is_empty()
                         || (self.peek().is_some_and(|c| c == &'*')
@@ -159,78 +184,78 @@ impl<'a> Tokenizer<'a> {
                     self.advance();
                     return self.scan_token();
                 } else if self.match_char('/') {
-                    println!("Second slash: {}, char: {}", self.line, self.code[0]);
                     while self.peek().is_some_and(|c| c != &'\n') {
-                        println!("{}", self.code[0]);
                         self.advance();
                     }
                     self.advance();
-                    println!("Finished slashes: {}, char: {} peek {} is new line: {}", self.line, self.code[0], self.code[1], self.code[0] == '\n');
                     if self.code.is_empty() {
                         return None;
                     }
                     return self.scan_token();
                 }
-                self.make_token(TokenType::Slash)
+                self.make_token(TokenType::Slash, "/".to_string())
             }
-            '\\' => self.make_token(TokenType::BackSlash),
-            '*' => self.make_token(TokenType::Star),
-            '?' => self.make_token(TokenType::Question),
-            ':' => self.make_token(TokenType::Colon),
+            '\\' => self.make_token(TokenType::BackSlash, "\\".to_string()),
+            '*' => self.make_token(TokenType::Star, "*".to_string()),
+            '?' => self.make_token(TokenType::Question, "?".to_string()),
+            ':' => self.make_token(TokenType::Colon, ":".to_string()),
             '!' => {
                 if self.match_char('=') {
                     if self.match_char('=') {
-                        self.make_token(TokenType::BangEqualEqual)
+                        self.make_token(TokenType::BangEqualEqual, "!==".to_string())
                     } else {
-                        self.make_token(TokenType::BangEqual)
+                        self.make_token(TokenType::BangEqual, "!=".to_string())
                     }
                 } else {
-                    self.make_token(TokenType::Bang)
+                    self.make_token(TokenType::Bang, "!".to_string())
                 }
             }
             '=' => {
                 if self.match_char('=') {
                     if self.match_char('=') {
-                        self.make_token(TokenType::EqualEqualEqual)
+                        self.make_token(TokenType::EqualEqualEqual, "===".to_string())
                     } else {
-                        self.make_token(TokenType::EqualEqual)
+                        self.make_token(TokenType::EqualEqual, "==".to_string())
                     }
                 } else {
-                    self.make_token(TokenType::Equal)
+                    self.make_token(TokenType::Equal, "=".to_string())
                 }
             }
             '>' => {
                 if self.match_char('=') {
-                    self.make_token(TokenType::GreaterEqual)
+                    self.make_token(TokenType::GreaterEqual, ">=".to_string())
                 } else {
-                    self.make_token(TokenType::Greater)
+                    self.make_token(TokenType::Greater, ">".to_string())
                 }
             }
             '<' => {
+                if self.match_char('<') && self.match_char('<') {
+                    self.here_doc();
+                }
                 if self.match_char('?') && self.match_char('p') && self.match_char('h') && self.match_char('p') {
-                    return Some(self.make_token(TokenType::PhpTag));
+                    return Some(self.make_token(TokenType::PhpTag, "<?php".to_string()));
                 }
                 if self.match_char('=') {
-                    self.make_token(TokenType::LessEqual)
+                    self.make_token(TokenType::LessEqual, "<=".to_string())
                 } else {
-                    self.make_token(TokenType::Less)
+                    self.make_token(TokenType::Less, "<".to_string())
                 }
             }
             '|' => {
                 if self.match_char('|') {
-                    self.make_token(TokenType::OrOperator)
+                    self.make_token(TokenType::OrOperator, "||".to_string())
                 } else {
-                    self.make_token(TokenType::Pipe)
+                    self.make_token(TokenType::Pipe, "|".to_string())
                 }
             }
             '&' => {
                 if self.match_char('&') {
-                    self.make_token(TokenType::AndOperator)
+                    self.make_token(TokenType::AndOperator, "&&".to_string())
                 } else {
-                    self.make_token(TokenType::Reference)
+                    self.make_token(TokenType::Reference, "&".to_string())
                 }
             }
-            '%' => self.make_token(TokenType::Modulo),
+            '%' => self.make_token(TokenType::Modulo, "%".to_string()),
             '"' => self.string('"'),
             '\'' => self.string('\''),
             '0'..='9' => self.number(),
@@ -241,6 +266,7 @@ impl<'a> Tokenizer<'a> {
                 todo!();
             },
         };
+        println!("Token: {:?}", token);
 
         Some(token)
     }
@@ -259,57 +285,27 @@ mod tests {
         .collect::<Vec<_>>();
         let mut tokenizer = Tokenizer::new(&code);
 
-        assert_eq!(Token::new(TokenType::If, 1), tokenizer.next().unwrap());
-        assert_eq!(Token::new(TokenType::Elseif, 1), tokenizer.next().unwrap());
-        assert_eq!(Token::new(TokenType::While, 1), tokenizer.next().unwrap());
-        assert_eq!(Token::new(TokenType::Switch, 1), tokenizer.next().unwrap());
-        assert_eq!(Token::new(TokenType::Match, 1), tokenizer.next().unwrap());
+        assert_eq!(Token::new(TokenType::If, 1, "if".to_string()), tokenizer.next().unwrap());
+        assert_eq!(Token::new(TokenType::Elseif, 1, "elseif".to_string()), tokenizer.next().unwrap());
+        assert_eq!(Token::new(TokenType::While, 1, "while".to_string()), tokenizer.next().unwrap());
+        assert_eq!(Token::new(TokenType::Switch, 1, "switch".to_string()), tokenizer.next().unwrap());
+        assert_eq!(Token::new(TokenType::Match, 1, "match".to_string()), tokenizer.next().unwrap());
         assert_eq!(None, tokenizer.next());
     }
 
     #[test]
-    fn test_scan_tokens_method() {
+    fn test_string() {
         let code = " \
-            if (true && (false || true)) {
-                echo 'True!\n';
-            } elseif (true) {
-                echo 'False!\n';
-            } else {
-                echo 'Else!\n';
-            }
-
-            while (true) {
-                $var = 'Foo';
-            }
-
-            switch ($i) {
-                case 0:
-                    echo '$i = 0';
-                    break;
-                case 1:
-                    echo '$i = 1';
-                    break;
-            }
-
-            match ($var) {
-                1 => 3,
-                2 => 4,
-            };
-            "
-        .chars()
-        .collect::<Vec<_>>();
-
+            'string';
+            \"String with a 'string' inside\";
+        ".chars().collect::<Vec<_>>();
         let tokens: Vec<Token> = Tokenizer::new(&code).collect();
 
-        assert_eq!(
-            Vec::from([
-                Token::new(TokenType::If, 1),
-                Token::new(TokenType::Elseif, 1),
-                Token::new(TokenType::While, 1),
-                Token::new(TokenType::Switch, 1),
-                Token::new(TokenType::Match, 1),
-            ]),
-            tokens,
-        );
+        assert_eq!(vec![
+            Token::new(TokenType::String, 1, "string".to_string()),
+            Token::new(TokenType::Semicolon, 1, ";".to_string()),
+            Token::new(TokenType::String, 2, "String with a 'string' inside".to_string()),
+            Token::new(TokenType::Semicolon, 2, ";".to_string()),
+        ], tokens);
     }
 }

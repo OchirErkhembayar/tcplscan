@@ -73,6 +73,7 @@ pub enum TokenType {
     BackSlash,
     OrOperator,
     AndOperator,
+    HereDoc,
 
     // Literals
     Identifier,
