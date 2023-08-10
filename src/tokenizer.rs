@@ -136,10 +136,14 @@ impl<'a> Tokenizer<'a> {
             word.push(self.next_char());
         }
 
-        self.make_token(
-            match_keyword(word.as_str()).unwrap_or(TokenType::Identifier),
-            word,
-        )
+        if self.peek().is_some_and(|c| c != &' ') {
+            self.make_token(TokenType::Callable, word)
+        } else {
+            self.make_token(
+                match_keyword(word.as_str()).unwrap_or(TokenType::Identifier),
+                word,
+            )
+        }
     }
 
     fn here_doc(&mut self) -> Token {

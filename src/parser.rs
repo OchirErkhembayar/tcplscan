@@ -178,7 +178,7 @@ impl<'a> Parser<'a> {
         let depth = self.brackets.len();
         loop {
             let token = self.next_token_opt().unwrap_or_else(|| {
-                eprintln!("Unterminated switch statement");
+                eprintln!("Unterminated match statement");
                 process::exit(1);
             });
 
