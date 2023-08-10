@@ -1,3 +1,4 @@
+use parser::StmtType;
 use std::{
     collections::HashMap,
     env,
@@ -5,8 +6,9 @@ use std::{
     process,
     time::SystemTime,
 };
-use token::TokenType;
 use tokenizer::Tokenizer;
+
+use crate::parser::Parser;
 
 mod git;
 mod parser;
@@ -16,11 +18,11 @@ mod tokenizer;
 #[derive(Debug)]
 struct File {
     path: String,
-    complexity: HashMap<TokenType, u32>,
+    complexity: HashMap<StmtType, u32>,
 }
 
 impl File {
-    fn new(path: &str, complexity: HashMap<TokenType, u32>) -> Self {
+    fn new(path: &str, complexity: HashMap<StmtType, u32>) -> Self {
         Self {
             path: path.to_string(),
             complexity,
@@ -65,10 +67,11 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
                 "Last accessed {:?} hours ago",
                 now.duration_since(accessed).unwrap().as_secs() / 60 / 60
             );
-            let mut complexity: HashMap<TokenType, u32> = HashMap::new();
-            for token in Tokenizer::new(&(content.chars().collect::<Vec<_>>())) {
+            let mut complexity: HashMap<StmtType, u32> = HashMap::new();
+            let tokens = Tokenizer::new(&(content.chars().collect::<Vec<_>>())).collect::<Vec<_>>();
+            for stmt in Parser::new(&tokens) {
                 complexity
-                    .entry(token.token_type)
+                    .entry(stmt.kind)
                     .and_modify(|count| *count += 1)
                     .or_insert(1);
             }
@@ -139,7 +142,10 @@ fn main() {
     });
 
     for (i, file) in files.iter().take(top_files).enumerate() {
-        println!("{} complexity file: {:?}", i + 1, file);
+        println!("{} complexity file: {}", i + 1, file.path);
+        for stmt in file.complexity.iter() {
+            println!("{:?}", stmt);
+        }
     }
 }
 

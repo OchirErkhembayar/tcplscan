@@ -1,6 +1,9 @@
 use std::process;
 
-use crate::{error, token::{TokenType, match_keyword}};
+use crate::{
+    error,
+    token::{match_keyword, TokenType},
+};
 
 #[derive(Debug, PartialEq)]
 pub struct Token {
@@ -11,7 +14,11 @@ pub struct Token {
 
 impl Token {
     fn new(token_type: TokenType, line: usize, lexeme: String) -> Self {
-        Self { token_type, line, lexeme }
+        Self {
+            token_type,
+            line,
+            lexeme,
+        }
     }
 }
 
@@ -75,18 +82,22 @@ impl<'a> Tokenizer<'a> {
 
     fn variable(&mut self) -> Token {
         let mut variable = String::from("$");
-        while self.peek().is_some_and(|c| c.is_alphanumeric() || c == &'_') {
+        while self
+            .peek()
+            .is_some_and(|c| c.is_alphanumeric() || c == &'_')
+        {
             variable.push(self.next_char());
         }
 
         self.make_token(TokenType::Identifier, variable)
     }
-    
+
     fn string(&mut self, quote_type: char) -> Token {
         let mut string = String::new();
         let mut previous = *self.peek().unwrap(); // Fix this
         let mut escaped = false;
-        while !self.code.is_empty() && !(!escaped && self.peek().is_some_and(|c| c == &quote_type)) {
+        while !self.code.is_empty() && !(!escaped && self.peek().is_some_and(|c| c == &quote_type))
+        {
             previous = self.next_char();
             if previous == '\\' {
                 escaped = !escaped;
@@ -120,11 +131,17 @@ impl<'a> Tokenizer<'a> {
 
     fn identifier(&mut self, start: char) -> Token {
         let mut word = start.to_string();
-        while self.peek().is_some_and(|c| c.is_alphanumeric() || c == &'_') {
+        while self
+            .peek()
+            .is_some_and(|c| c.is_alphanumeric() || c == &'_')
+        {
             word.push(self.next_char());
         }
 
-        self.make_token(match_keyword(word.as_str()).unwrap_or_else(|| TokenType::Identifier), word)
+        self.make_token(
+            match_keyword(word.as_str()).unwrap_or_else(|| TokenType::Identifier),
+            word,
+        )
     }
 
     fn here_doc(&mut self) -> Token {
@@ -173,7 +190,7 @@ impl<'a> Tokenizer<'a> {
                 if self.match_char('*') {
                     while !(self.code.is_empty()
                         || (self.peek().is_some_and(|c| c == &'*')
-                        && self.peek_next().is_some_and(|c| c == &'/')))
+                            && self.peek_next().is_some_and(|c| c == &'/')))
                     {
                         self.advance();
                     }
@@ -232,7 +249,11 @@ impl<'a> Tokenizer<'a> {
                 if self.match_char('<') && self.match_char('<') {
                     self.here_doc();
                 }
-                if self.match_char('?') && self.match_char('p') && self.match_char('h') && self.match_char('p') {
+                if self.match_char('?')
+                    && self.match_char('p')
+                    && self.match_char('h')
+                    && self.match_char('p')
+                {
                     return Some(self.make_token(TokenType::PhpTag, "<?php".to_string()));
                 }
                 if self.match_char('=') {
@@ -263,9 +284,14 @@ impl<'a> Tokenizer<'a> {
             '_' | 'a'..='z' | 'A'..='Z' => self.identifier(char),
             '$' => self.variable(),
             _ => {
-                println!("{char} line {}, peek next 2: {}{}", self.line, self.peek().unwrap(), self.peek_next().unwrap());
+                println!(
+                    "{char} line {}, peek next 2: {}{}",
+                    self.line,
+                    self.peek().unwrap(),
+                    self.peek_next().unwrap()
+                );
                 todo!();
-            },
+            }
         };
         println!("Token: {:?}", token);
 
@@ -286,11 +312,26 @@ mod tests {
         .collect::<Vec<_>>();
         let mut tokenizer = Tokenizer::new(&code);
 
-        assert_eq!(Token::new(TokenType::If, 1, "if".to_string()), tokenizer.next().unwrap());
-        assert_eq!(Token::new(TokenType::Elseif, 1, "elseif".to_string()), tokenizer.next().unwrap());
-        assert_eq!(Token::new(TokenType::While, 1, "while".to_string()), tokenizer.next().unwrap());
-        assert_eq!(Token::new(TokenType::Switch, 1, "switch".to_string()), tokenizer.next().unwrap());
-        assert_eq!(Token::new(TokenType::Match, 1, "match".to_string()), tokenizer.next().unwrap());
+        assert_eq!(
+            Token::new(TokenType::If, 1, "if".to_string()),
+            tokenizer.next().unwrap()
+        );
+        assert_eq!(
+            Token::new(TokenType::Elseif, 1, "elseif".to_string()),
+            tokenizer.next().unwrap()
+        );
+        assert_eq!(
+            Token::new(TokenType::While, 1, "while".to_string()),
+            tokenizer.next().unwrap()
+        );
+        assert_eq!(
+            Token::new(TokenType::Switch, 1, "switch".to_string()),
+            tokenizer.next().unwrap()
+        );
+        assert_eq!(
+            Token::new(TokenType::Match, 1, "match".to_string()),
+            tokenizer.next().unwrap()
+        );
         assert_eq!(None, tokenizer.next());
     }
 
@@ -299,14 +340,23 @@ mod tests {
         let code = " \
             'string';
             \"String with a 'string' inside\";
-        ".chars().collect::<Vec<_>>();
+        "
+        .chars()
+        .collect::<Vec<_>>();
         let tokens: Vec<Token> = Tokenizer::new(&code).collect();
 
-        assert_eq!(vec![
-            Token::new(TokenType::String, 1, "string".to_string()),
-            Token::new(TokenType::Semicolon, 1, ";".to_string()),
-            Token::new(TokenType::String, 2, "String with a 'string' inside".to_string()),
-            Token::new(TokenType::Semicolon, 2, ";".to_string()),
-        ], tokens);
+        assert_eq!(
+            vec![
+                Token::new(TokenType::String, 1, "string".to_string()),
+                Token::new(TokenType::Semicolon, 1, ";".to_string()),
+                Token::new(
+                    TokenType::String,
+                    2,
+                    "String with a 'string' inside".to_string()
+                ),
+                Token::new(TokenType::Semicolon, 2, ";".to_string()),
+            ],
+            tokens
+        );
     }
 }

@@ -29,7 +29,7 @@ lazy_static! {
 pub fn match_keyword(keyword: &str) -> Option<TokenType> {
     match KEYWORDS.get(keyword) {
         Some(keyword) => Some(*keyword),
-        None => None
+        None => None,
     }
 }
 
@@ -94,10 +94,10 @@ pub enum TokenType {
     Foreach,  // Care
     If,       // Care
     Elseif,   // Care
-    While,  // Care
-    Match,  // Care
-    Switch, // Care
-    Case,   // Care
+    While,    // Care
+    Match,    // Care
+    Switch,   // Care
+    Case,     // Care
     Break,
     Try,     // Care
     Catch,   // Care
