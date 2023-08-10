@@ -29,10 +29,7 @@ lazy_static! {
 }
 
 pub fn match_keyword(keyword: &str) -> Option<TokenType> {
-    match KEYWORDS.get(keyword) {
-        Some(keyword) => Some(*keyword),
-        None => None,
-    }
+    KEYWORDS.get(keyword).copied()
 }
 
 #[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]

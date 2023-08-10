@@ -1,6 +1,6 @@
 use std::process;
 
-use crate::{error, token::TokenType, tokenizer::Token};
+use crate::{token::TokenType, tokenizer::Token};
 
 #[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Stmt {
@@ -23,16 +23,6 @@ pub enum StmtType {
     Foreach,
     Switch { case_count: usize },
     Match { case_count: usize },
-}
-// Count the number of if and case labels
-// elsif, if, function
-#[derive(Debug)]
-pub struct Cyclomatic {
-    pub score: usize,
-}
-
-pub struct Complexity {
-    cyclomatic: Cyclomatic,
 }
 
 pub struct Parser<'a> {
@@ -89,10 +79,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn peek(&self) -> Option<&Token> {
-        self.tokens.get(0)
-    }
-
     fn next_token_opt(&mut self) -> Option<&Token> {
         let token = match self.tokens.get(0) {
             Some(token) => token,
@@ -101,34 +87,11 @@ impl<'a> Parser<'a> {
         self.advance();
         Some(token)
     }
-
-    fn next_token(&mut self) -> &Token {
-        self.next_token_opt().unwrap_or_else(|| {
-            eprintln!("ERROR: Expected token.");
-            process::exit(1);
-        })
-    }
-
-    fn consume(&mut self, expected: TokenType) {
-        let next_token = self.next_token();
-        if next_token.token_type != expected {
-            error(
-                format!("Expected {:?}, got {}", expected, next_token.lexeme).as_str(),
-                next_token.line,
-            );
-            process::exit(1);
-        }
-    }
 }
 
 impl<'a> Parser<'a> {
     pub fn parse(&mut self) {
-        loop {
-            let token = match self.next_token_opt() {
-                Some(token) => token,
-                None => break,
-            };
-
+        while let Some(token) = self.next_token_opt() {
             let stmt = match token.token_type {
                 TokenType::If => Stmt::new(StmtType::If, token.line),
                 TokenType::Elseif => Stmt::new(StmtType::Elseif, token.line),
@@ -146,8 +109,6 @@ impl<'a> Parser<'a> {
     }
 
     fn switch_stmt(&mut self, line: usize) -> Stmt {
-        // Look for next token and if you find case then keep looking for more case
-        // If you find default or another statement then stop
         let mut case_count = 0;
         let depth = self.brackets.len();
         loop {
@@ -190,12 +151,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                 }
-                _ => {
-                    // Figure out how to tell that switch ended when there is no default
-                    // Create a stack of brackets/parens and use the depth to tell when it ends
-                    // Then we can remove the default arm of this match
-                    continue;
-                }
+                _ => continue,
             }
         }
         Stmt::new(StmtType::Switch { case_count }, line)
@@ -243,9 +199,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                 }
-                _ => {
-                    continue;
-                }
+                _ => continue,
             }
         }
         Stmt::new(StmtType::Match { case_count }, line)

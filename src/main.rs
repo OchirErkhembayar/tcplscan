@@ -92,7 +92,7 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
         }
         if metadata.is_dir() {
             let path = entry.path();
-            let dir_entry = fs::read_dir(&path).unwrap_or_else(|err| {
+            let dir_entry = fs::read_dir(path).unwrap_or_else(|err| {
                 eprintln!("ERROR: Failed to read directory, {err}");
                 process::exit(1);
             });
@@ -150,7 +150,7 @@ fn main() {
             .cmp(&a.complexity.values().sum::<usize>())
     });
 
-    println!("");
+    println!();
     println!("Top files");
     println!("* ---------- *");
     for (i, file) in files.iter().take(top_files).enumerate() {

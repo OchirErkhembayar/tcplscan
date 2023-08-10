@@ -33,7 +33,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn advance(&mut self) {
-        if let Some(c) = self.code.get(0) {
+        if let Some(c) = self.code.first() {
             if c == &'\n' {
                 self.line += 1;
             }
@@ -45,7 +45,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn next_char_opt(&mut self) -> Option<char> {
-        let char = match self.code.get(0) {
+        let char = match self.code.first() {
             Some(char) => char,
             None => return None,
         };
@@ -61,7 +61,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn peek(&self) -> Option<&char> {
-        self.code.get(0)
+        self.code.first()
     }
 
     fn peek_next(&self) -> Option<&char> {
@@ -94,11 +94,9 @@ impl<'a> Tokenizer<'a> {
 
     fn string(&mut self, quote_type: char) -> Token {
         let mut string = String::new();
-        let mut previous = *self.peek().unwrap(); // Fix this
         let mut escaped = false;
-        while !self.code.is_empty() && !(!escaped && self.peek().is_some_and(|c| c == &quote_type))
-        {
-            previous = self.next_char();
+        while (!self.peek().is_some_and(|c| c == &quote_type) || escaped) && !self.code.is_empty() {
+            let previous = self.next_char();
             if previous == '\\' {
                 escaped = !escaped;
             } else {
@@ -139,7 +137,7 @@ impl<'a> Tokenizer<'a> {
         }
 
         self.make_token(
-            match_keyword(word.as_str()).unwrap_or_else(|| TokenType::Identifier),
+            match_keyword(word.as_str()).unwrap_or(TokenType::Identifier),
             word,
         )
     }
