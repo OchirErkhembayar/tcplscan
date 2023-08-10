@@ -37,11 +37,12 @@ pub struct Complexity {
 
 pub struct Parser<'a> {
     tokens: &'a [Token],
+    pub stmts: Vec<Stmt>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
-        Self { tokens }
+        Self { tokens, stmts: Vec::new() }
     }
 
     fn advance(&mut self) {
@@ -50,6 +51,10 @@ impl<'a> Parser<'a> {
         } else {
             panic!("Fix this bug with advancing in parser");
         }
+    }
+    
+    fn peek(&self) -> Option<&Token> {
+        self.tokens.get(0)
     }
 
     fn next_token_opt(&mut self) -> Option<&Token> {
@@ -80,30 +85,83 @@ impl<'a> Parser<'a> {
     }
 }
 
-impl<'a> Iterator for Parser<'a> {
-    type Item = Stmt;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_stmt()
-    }
-}
-
 impl<'a> Parser<'a> {
-    fn next_stmt(&mut self) -> Option<Stmt> {
-        let token = match self.next_token_opt() {
-            Some(token) => token,
-            None => return None,
-        };
+    pub fn parse(&mut self) {
+        loop {
+            let token = match self.next_token_opt() {
+                Some(token) => token,
+                None => break,
+            };
 
-        let token = match token.token_type {
-            TokenType::If => Stmt::new(StmtType::If, token.line),
-            TokenType::Elseif => Stmt::new(StmtType::Elseif, token.line),
-            TokenType::For => Stmt::new(StmtType::For, token.line),
-            TokenType::Foreach => Stmt::new(StmtType::Foreach, token.line),
-            TokenType::Function => Stmt::new(StmtType::Function, token.line),
-            _ => return self.next_stmt(),
-        };
+            let stmt = match token.token_type {
+                TokenType::If => Stmt::new(StmtType::If, token.line),
+                TokenType::Elseif => Stmt::new(StmtType::Elseif, token.line),
+                TokenType::For => Stmt::new(StmtType::For, token.line),
+                TokenType::Foreach => Stmt::new(StmtType::Foreach, token.line),
+                TokenType::Function => Stmt::new(StmtType::Function, token.line),
+                TokenType::Switch => {
+                    let line = token.line;
+                    self.switch_stmt(line)
+                },
+                TokenType::Match => {
+                    let line = token.line;
+                    self.match_stmt(line)
+                }
+                _ => continue,
+            };
+            self.stmts.push(stmt);
+        }
+    }
 
-        Some(token)
+    fn switch_stmt(&mut self, line: usize) -> Stmt {
+        // Look for next token and if you find case then keep looking for more case
+        // If you find default or another statement then stop
+        let mut case_count = 0;
+        loop {
+            let token = self.peek().unwrap_or_else(|| {
+                eprintln!("Unterminated switch statement");
+                process::exit(1);
+            });
+
+            match token.token_type {
+                TokenType::Case => case_count += 1,
+                TokenType::Default => break,
+                TokenType::Match => {
+                    let line = token.line;
+                    let stmt = self.match_stmt(line);
+                    self.stmts.push(stmt);
+                }
+                TokenType::Switch => {
+                    let line = token.line;
+                    let stmt = self.switch_stmt(line);
+                    self.stmts.push(stmt);
+                }
+                _ => {
+                    let line = token.line;
+                    match 
+                },
+            }
+        }
+        Stmt::new(StmtType::Switch { case_count }, line)
+    }
+
+    fn match_stmt(&mut self, line: usize) -> Stmt {
+        let mut case_count = 0;
+        loop {
+            let token = self.peek().unwrap_or_else(|| {
+                eprintln!("Unterminated switch statement");
+                process::exit(1);
+            });
+
+            match token.token_type {
+                TokenType::Case => case_count += 1,
+                TokenType::Default => break,
+                TokenType::Match => {
+                    self.match_stmt(token.line);
+                }
+                _ => continue,
+            }
+        }
+        Stmt::new(StmtType::Match { case_count }, line)
     }
 }

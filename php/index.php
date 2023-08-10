@@ -10,10 +10,12 @@ switch ($i) {
     case 1:
         echo "$i is 1";
         break;
+    default:
+        break;
 }
 
 if ($i = 0) {
-    \printf("%s" $i);
+    \printf("%s", $i);
 } else {
     \printf("Else");
 }

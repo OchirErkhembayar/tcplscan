@@ -69,7 +69,9 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
             );
             let mut complexity: HashMap<StmtType, u32> = HashMap::new();
             let tokens = Tokenizer::new(&(content.chars().collect::<Vec<_>>())).collect::<Vec<_>>();
-            for stmt in Parser::new(&tokens) {
+            let mut parser = Parser::new(&tokens);
+            parser.parse();
+            for stmt in parser.stmts {
                 complexity
                     .entry(stmt.kind)
                     .and_modify(|count| *count += 1)
