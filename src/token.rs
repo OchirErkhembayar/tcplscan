@@ -22,6 +22,8 @@ lazy_static! {
         map.insert("strict_types", TokenType::StrictTypes);
         map.insert("namespace", TokenType::Namespace);
         map.insert("class", TokenType::Class);
+        map.insert("case", TokenType::Case);
+        map.insert("default", TokenType::Default);
         map
     };
 }
@@ -75,6 +77,7 @@ pub enum TokenType {
     OrOperator,
     AndOperator,
     HereDoc,
+    FatArrow,
 
     // Literals
     Identifier,

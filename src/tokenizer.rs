@@ -234,6 +234,8 @@ impl<'a> Tokenizer<'a> {
                     } else {
                         self.make_token(TokenType::EqualEqual, "==".to_string())
                     }
+                } else if self.match_char('>') {
+                    self.make_token(TokenType::FatArrow, "=>".to_string())
                 } else {
                     self.make_token(TokenType::Equal, "=".to_string())
                 }

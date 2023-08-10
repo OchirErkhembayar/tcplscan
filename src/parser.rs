@@ -38,11 +38,12 @@ pub struct Complexity {
 pub struct Parser<'a> {
     tokens: &'a [Token],
     pub stmts: Vec<Stmt>,
+    bracket_stack: Vec<char>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
-        Self { tokens, stmts: Vec::new() }
+        Self { tokens, stmts: Vec::new(), bracket_stack: Vec::new() }
     }
 
     fn advance(&mut self) {
@@ -83,6 +84,10 @@ impl<'a> Parser<'a> {
             process::exit(1);
         }
     }
+
+    fn add_bracket(&mut self) {
+
+    }
 }
 
 impl<'a> Parser<'a> {
@@ -102,10 +107,6 @@ impl<'a> Parser<'a> {
                 TokenType::Switch => {
                     let line = token.line;
                     self.switch_stmt(line)
-                },
-                TokenType::Match => {
-                    let line = token.line;
-                    self.match_stmt(line)
                 }
                 _ => continue,
             };
@@ -118,7 +119,7 @@ impl<'a> Parser<'a> {
         // If you find default or another statement then stop
         let mut case_count = 0;
         loop {
-            let token = self.peek().unwrap_or_else(|| {
+            let token = self.next_token_opt().unwrap_or_else(|| {
                 eprintln!("Unterminated switch statement");
                 process::exit(1);
             });
@@ -136,9 +137,27 @@ impl<'a> Parser<'a> {
                     let stmt = self.switch_stmt(line);
                     self.stmts.push(stmt);
                 }
-                _ => {
+                TokenType::If => {
                     let line = token.line;
-                    match 
+                    self.stmts.push(Stmt::new(StmtType::If, line));
+                }
+                TokenType::Elseif => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::Elseif, line));
+                }
+                TokenType::For => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::For, line));
+                }
+                TokenType::Foreach => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::Foreach, line));
+                }
+                _ => {
+                    // Figure out how to tell that switch ended when there is no default
+                    // Create a stack of brackets/parens and use the depth to tell when it ends
+                    // Then we can remove the default arm of this match
+                    continue;
                 },
             }
         }
@@ -148,16 +167,38 @@ impl<'a> Parser<'a> {
     fn match_stmt(&mut self, line: usize) -> Stmt {
         let mut case_count = 0;
         loop {
-            let token = self.peek().unwrap_or_else(|| {
+            let token = self.next_token_opt().unwrap_or_else(|| {
                 eprintln!("Unterminated switch statement");
                 process::exit(1);
             });
 
             match token.token_type {
-                TokenType::Case => case_count += 1,
+                TokenType::FatArrow => case_count += 1,
                 TokenType::Default => break,
                 TokenType::Match => {
-                    self.match_stmt(token.line);
+                    let line = token.line;
+                    self.match_stmt(line);
+                }
+                TokenType::Switch => {
+                    let line = token.line;
+                    let stmt = self.switch_stmt(line);
+                    self.stmts.push(stmt);
+                }
+                TokenType::If => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::If, line));
+                }
+                TokenType::Elseif => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::Elseif, line));
+                }
+                TokenType::For => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::For, line));
+                }
+                TokenType::Foreach => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::Foreach, line));
                 }
                 _ => continue,
             }
