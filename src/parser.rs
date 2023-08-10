@@ -21,6 +21,8 @@ pub enum StmtType {
     Function,
     For,
     Foreach,
+    Throw,
+    Catch,
     Switch { case_count: usize },
     Match { case_count: usize },
 }
@@ -98,9 +100,15 @@ impl<'a> Parser<'a> {
                 TokenType::For => Stmt::new(StmtType::For, token.line),
                 TokenType::Foreach => Stmt::new(StmtType::Foreach, token.line),
                 TokenType::Function => Stmt::new(StmtType::Function, token.line),
+                TokenType::Throw => Stmt::new(StmtType::Throw, token.line),
+                TokenType::Catch => Stmt::new(StmtType::Catch, token.line),
                 TokenType::Switch => {
                     let line = token.line;
                     self.switch_stmt(line)
+                }
+                TokenType::Match => {
+                    let line = token.line;
+                    self.match_stmt(line)
                 }
                 _ => continue,
             };
@@ -145,6 +153,14 @@ impl<'a> Parser<'a> {
                 TokenType::Foreach => {
                     let line = token.line;
                     self.stmts.push(Stmt::new(StmtType::Foreach, line));
+                }
+                TokenType::Throw => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::Throw, line));
+                }
+                TokenType::Catch => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::Catch, line));
                 }
                 TokenType::RightBrace => {
                     if self.brackets.len() == depth {
@@ -193,6 +209,14 @@ impl<'a> Parser<'a> {
                 TokenType::Foreach => {
                     let line = token.line;
                     self.stmts.push(Stmt::new(StmtType::Foreach, line));
+                }
+                TokenType::Throw => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::Throw, line));
+                }
+                TokenType::Catch => {
+                    let line = token.line;
+                    self.stmts.push(Stmt::new(StmtType::Catch, line));
                 }
                 TokenType::RightBrace => {
                     if self.brackets.len() == depth {

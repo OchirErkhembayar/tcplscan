@@ -24,6 +24,8 @@ lazy_static! {
         map.insert("class", TokenType::Class);
         map.insert("case", TokenType::Case);
         map.insert("default", TokenType::Default);
+        map.insert("throw", TokenType::Throw);
+        map.insert("catch", TokenType::Catch);
         map
     };
 }
