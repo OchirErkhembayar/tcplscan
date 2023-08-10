@@ -145,9 +145,12 @@ fn main() {
 
     for (i, file) in files.iter().take(top_files).enumerate() {
         println!("{} complexity file: {}", i + 1, file.path);
+        let mut score = 0;
         for stmt in file.complexity.iter() {
             println!("{:?}", stmt);
+            score += stmt.1;
         }
+        println!("Overall score: {score}");
     }
 }
 
