@@ -38,16 +38,47 @@ pub struct Complexity {
 pub struct Parser<'a> {
     tokens: &'a [Token],
     pub stmts: Vec<Stmt>,
-    bracket_stack: Vec<char>,
+    brackets: Vec<TokenType>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
-        Self { tokens, stmts: Vec::new(), bracket_stack: Vec::new() }
+        Self { tokens, stmts: Vec::new(), brackets: Vec::new() }
+    }
+
+    fn closing_bracket(&mut self, token_type: TokenType) {
+        let top = self.brackets.pop().unwrap_or_else(|| {
+            eprintln!("Unmatched opening bracket: {:?}", token_type);
+            process::exit(1);
+        });
+        match top {
+            TokenType::LeftParen => {
+                if token_type != TokenType::RightParen {
+                    eprintln!("Unmatched closing bracket: {:?}", token_type);
+                    process::exit(1);
+                }
+            },
+            TokenType::LeftBrace => {
+                if token_type != TokenType::RightBrace {
+                    eprintln!("Unmatched closing bracket: {:?}", token_type);
+                    process::exit(1);
+                }
+            }
+            _ => {
+                panic!("This shouldn't happen :P");
+            }
+        }
     }
 
     fn advance(&mut self) {
-        if let Some(_) = self.tokens.get(0) {
+        if let Some(token) = self.tokens.get(0) {
+            match token.token_type {
+                TokenType::LeftParen => self.brackets.push(TokenType::LeftParen),
+                TokenType::LeftBrace => self.brackets.push(TokenType::LeftBrace),
+                TokenType::RightParen => self.closing_bracket(TokenType::RightParen),
+                TokenType::RightBrace => self.closing_bracket(TokenType::RightBrace),
+                _ => (),
+            }
             self.tokens = &self.tokens[1..];
         } else {
             panic!("Fix this bug with advancing in parser");
@@ -85,9 +116,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn add_bracket(&mut self) {
-
-    }
 }
 
 impl<'a> Parser<'a> {
@@ -118,6 +146,7 @@ impl<'a> Parser<'a> {
         // Look for next token and if you find case then keep looking for more case
         // If you find default or another statement then stop
         let mut case_count = 0;
+        let depth = self.brackets.len();
         loop {
             let token = self.next_token_opt().unwrap_or_else(|| {
                 eprintln!("Unterminated switch statement");
@@ -153,6 +182,11 @@ impl<'a> Parser<'a> {
                     let line = token.line;
                     self.stmts.push(Stmt::new(StmtType::Foreach, line));
                 }
+                TokenType::RightBrace => {
+                    if self.brackets.len() == depth {
+                        break;
+                    }
+                }
                 _ => {
                     // Figure out how to tell that switch ended when there is no default
                     // Create a stack of brackets/parens and use the depth to tell when it ends
@@ -166,6 +200,7 @@ impl<'a> Parser<'a> {
 
     fn match_stmt(&mut self, line: usize) -> Stmt {
         let mut case_count = 0;
+        let depth = self.brackets.len();
         loop {
             let token = self.next_token_opt().unwrap_or_else(|| {
                 eprintln!("Unterminated switch statement");
@@ -200,7 +235,14 @@ impl<'a> Parser<'a> {
                     let line = token.line;
                     self.stmts.push(Stmt::new(StmtType::Foreach, line));
                 }
-                _ => continue,
+                TokenType::RightBrace => {
+                    if self.brackets.len() == depth {
+                        break;
+                    }
+                }
+                _ => {
+                    continue;
+                }
             }
         }
         Stmt::new(StmtType::Match { case_count }, line)

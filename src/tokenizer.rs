@@ -145,11 +145,40 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn here_doc(&mut self) -> Token {
+        let mut title = Vec::new();
         let mut doc = String::new();
-        while self.peek().is_some_and(|c| c != &';') {
-            doc.push(self.next_char());
+        if self.peek().is_some_and(|c| c == &'\'' || c == &'"') {
+            let opening = self.next_char();
+            self.advance();
+            while self.peek().is_some_and(|c| c != &opening) {
+                title.push(self.next_char());
+            }
+        } else {
+            while self.peek().is_some_and(|c| c != &'\n') {
+                title.push(self.next_char());
+            }
         }
         self.advance();
+        loop {
+            let mut found = true;
+            for (i, char) in title.iter().enumerate() {
+                if &self.code[i] != char {
+                    found = false;
+                    break;
+                }
+            }
+            if found {
+                for char in title.iter() {
+                    doc.push(*char);
+                    self.advance();
+                }
+            } else {
+                doc.push(self.next_char());
+            }
+            if found {
+                break;
+            }
+        }
 
         self.make_token(TokenType::HereDoc, doc)
     }
@@ -249,7 +278,7 @@ impl<'a> Tokenizer<'a> {
             }
             '<' => {
                 if self.match_char('<') && self.match_char('<') {
-                    self.here_doc();
+                    return Some(self.here_doc());
                 }
                 if self.match_char('?')
                     && self.match_char('p')
