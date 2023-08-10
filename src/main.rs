@@ -1,3 +1,4 @@
+use crate::parser::Parser;
 use parser::StmtType;
 use std::{
     collections::HashMap,
@@ -7,8 +8,6 @@ use std::{
     time::SystemTime,
 };
 use tokenizer::Tokenizer;
-
-use crate::parser::Parser;
 
 mod git;
 mod parser;
@@ -20,14 +19,21 @@ struct File {
     path: String,
     complexity: HashMap<StmtType, usize>,
     lines: usize,
+    last_accessed: usize,
 }
 
 impl File {
-    fn new(path: &str, complexity: HashMap<StmtType, usize>, lines: usize) -> Self {
+    fn new(
+        path: &str,
+        complexity: HashMap<StmtType, usize>,
+        lines: usize,
+        last_accessed: usize,
+    ) -> Self {
         Self {
             path: path.to_string(),
             complexity,
             lines,
+            last_accessed,
         }
     }
 }
@@ -66,10 +72,8 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
                 eprintln!("ERROR: Failed to read accessed date, {err}");
                 process::exit(1);
             });
-            println!(
-                "Last accessed {:?} hours ago",
-                now.duration_since(accessed).unwrap().as_secs() / 60 / 60
-            );
+            let last_accessed = now.duration_since(accessed).unwrap().as_secs() / 60 / 60;
+            println!("Last accessed {:?} hours ago", last_accessed);
             let mut complexity: HashMap<StmtType, usize> = HashMap::new();
             let tokens = Tokenizer::new(&(content.chars().collect::<Vec<_>>())).collect::<Vec<_>>();
             let mut parser = Parser::new(&tokens);
@@ -88,6 +92,7 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
                     Some(token) => token.line,
                     None => 0,
                 },
+                last_accessed as usize,
             ));
         }
         if metadata.is_dir() {
@@ -155,6 +160,7 @@ fn main() {
     println!("* ---------- *");
     for (i, file) in files.iter().take(top_files).enumerate() {
         println!("{}. complexity file: {}", i + 1, file.path);
+        println!("Last accessed {} hours ago", file.last_accessed);
         println!("Lines: {}", file.lines);
         let mut score = 0;
         for stmt in file.complexity.iter() {
