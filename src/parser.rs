@@ -43,7 +43,11 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
-        Self { tokens, stmts: Vec::new(), brackets: Vec::new() }
+        Self {
+            tokens,
+            stmts: Vec::new(),
+            brackets: Vec::new(),
+        }
     }
 
     fn closing_bracket(&mut self, token_type: TokenType) {
@@ -57,7 +61,7 @@ impl<'a> Parser<'a> {
                     eprintln!("Unmatched closing bracket: {:?}", token_type);
                     process::exit(1);
                 }
-            },
+            }
             TokenType::LeftBrace => {
                 if token_type != TokenType::RightBrace {
                     eprintln!("Unmatched closing bracket: {:?}", token_type);
@@ -84,7 +88,7 @@ impl<'a> Parser<'a> {
             panic!("Fix this bug with advancing in parser");
         }
     }
-    
+
     fn peek(&self) -> Option<&Token> {
         self.tokens.get(0)
     }
@@ -115,7 +119,6 @@ impl<'a> Parser<'a> {
             process::exit(1);
         }
     }
-
 }
 
 impl<'a> Parser<'a> {
@@ -192,7 +195,7 @@ impl<'a> Parser<'a> {
                     // Create a stack of brackets/parens and use the depth to tell when it ends
                     // Then we can remove the default arm of this match
                     continue;
-                },
+                }
             }
         }
         Stmt::new(StmtType::Switch { case_count }, line)

@@ -18,14 +18,16 @@ mod tokenizer;
 #[derive(Debug)]
 struct File {
     path: String,
-    complexity: HashMap<StmtType, u32>,
+    complexity: HashMap<StmtType, usize>,
+    lines: usize,
 }
 
 impl File {
-    fn new(path: &str, complexity: HashMap<StmtType, u32>) -> Self {
+    fn new(path: &str, complexity: HashMap<StmtType, usize>, lines: usize) -> Self {
         Self {
             path: path.to_string(),
             complexity,
+            lines,
         }
     }
 }
@@ -43,9 +45,10 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
         if metadata.is_file() {
             let path = entry.path();
             if extension.is_some_and(|to_skip| {
-                path.as_path()
+                !path
+                    .as_path()
                     .extension()
-                    .is_some_and(|extension| extension != to_skip)
+                    .is_some_and(|extension| extension == to_skip)
             }) {
                 println!("Skipping path: {:?}", path);
                 return;
@@ -67,7 +70,7 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
                 "Last accessed {:?} hours ago",
                 now.duration_since(accessed).unwrap().as_secs() / 60 / 60
             );
-            let mut complexity: HashMap<StmtType, u32> = HashMap::new();
+            let mut complexity: HashMap<StmtType, usize> = HashMap::new();
             let tokens = Tokenizer::new(&(content.chars().collect::<Vec<_>>())).collect::<Vec<_>>();
             let mut parser = Parser::new(&tokens);
             parser.parse();
@@ -81,6 +84,10 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
             files.push(File::new(
                 path.into_os_string().into_string().unwrap().as_str(),
                 complexity,
+                match tokens.last() {
+                    Some(token) => token.line,
+                    None => 0,
+                },
             ));
         }
         if metadata.is_dir() {
@@ -139,18 +146,23 @@ fn main() {
     files.sort_by(|a, b| {
         b.complexity
             .values()
-            .sum::<u32>()
-            .cmp(&a.complexity.values().sum::<u32>())
+            .sum::<usize>()
+            .cmp(&a.complexity.values().sum::<usize>())
     });
 
+    println!("");
+    println!("Top files");
+    println!("* ---------- *");
     for (i, file) in files.iter().take(top_files).enumerate() {
-        println!("{} complexity file: {}", i + 1, file.path);
+        println!("{}. complexity file: {}", i + 1, file.path);
+        println!("Lines: {}", file.lines);
         let mut score = 0;
         for stmt in file.complexity.iter() {
             println!("{:?}", stmt);
             score += stmt.1;
         }
-        println!("Overall score: {score}");
+        println!("Overall cyclomatic complexity score: {score}");
+        println!("* ---------- *");
     }
 }
 
