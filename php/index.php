@@ -27,3 +27,6 @@ if ($i = 0) {
     \printf("Else");
 }
 
+$this->something->something;
+$this->fun->call();
+

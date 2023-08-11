@@ -80,18 +80,6 @@ impl<'a> Tokenizer<'a> {
         Token::new(token_type, self.line, lexeme)
     }
 
-    fn variable(&mut self) -> Token {
-        let mut variable = String::from("$");
-        while self
-            .peek()
-            .is_some_and(|c| c.is_alphanumeric() || c == &'_')
-        {
-            variable.push(self.next_char());
-        }
-
-        self.make_token(TokenType::Identifier, variable)
-    }
-
     fn string(&mut self, quote_type: char) -> Token {
         let mut string = String::new();
         let mut escaped = false;
@@ -136,7 +124,17 @@ impl<'a> Tokenizer<'a> {
             word.push(self.next_char());
         }
 
-        if self.peek().is_some_and(|c| c != &' ') {
+        if start == '$' {
+            while self.peek().is_some_and(|c| c == &'-') && self.peek_next().is_some_and(|c| c == &'>') {
+                word.push(self.next_char());
+                word.push(self.next_char());
+                while self.peek().is_some_and(|c| c.is_alphanumeric() || c == &'_') {
+                    word.push(self.next_char());
+                }
+            }
+        }
+
+        if self.peek().is_some_and(|c| c ==  &'(') {
             self.make_token(TokenType::Callable, word)
         } else {
             self.make_token(
@@ -314,8 +312,7 @@ impl<'a> Tokenizer<'a> {
             '\'' => self.string('\''),
             '0'..='9' => self.number(),
             '@' => self.make_token(TokenType::AtSign, "@".to_string()),
-            '_' | 'a'..='z' | 'A'..='Z' => self.identifier(char),
-            '$' => self.variable(),
+            '_' | 'a'..='z' | 'A'..='Z' | '$' => self.identifier(char),
             _ => {
                 println!(
                     "{char} line {}, peek next 2: {}{}",

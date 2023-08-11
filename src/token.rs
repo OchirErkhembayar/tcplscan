@@ -9,6 +9,7 @@ lazy_static! {
         map.insert("xor", TokenType::Xor);
         map.insert("class", TokenType::Class);
         map.insert("else", TokenType::Else);
+        map.insert("$this", TokenType::This);
         map.insert("false", TokenType::False);
         map.insert("function", TokenType::Function);
         map.insert("for", TokenType::For);
@@ -89,6 +90,7 @@ pub enum TokenType {
     Or,
     Xor,
     Class,
+    This,
     Else, // Care
     False,
     Function, // Care
