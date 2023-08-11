@@ -15,6 +15,8 @@ lazy_static! {
         map.insert("namespace", Keyword::Namespace);
         map.insert("class", Keyword::Class);
         map.insert("function", Keyword::Function);
+        map.insert("throw", Keyword::Throw);
+        map.insert("catch", Keyword::Catch);
         map
     };
 }
@@ -36,6 +38,8 @@ pub enum Keyword {
     Namespace,
     Class,
     Function,
+    Throw,
+    Catch,
 }
 
 #[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]

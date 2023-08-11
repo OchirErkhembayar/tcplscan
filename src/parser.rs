@@ -18,7 +18,6 @@ impl Stmt {
 pub enum StmtType {
     If,
     Elseif,
-    Function,
     For,
     Foreach,
     Throw,
@@ -168,11 +167,10 @@ impl<'a> Parser<'a> {
                                 continue;
                             }
                             Keyword::Function => {
-                                println!("Starting a function {:?}", self.peek());
                                 let name = self.next_token().lexeme.clone();
                                 let mut params = 0;
                                 while self.peek().is_some_and(|t| t.token_type != TokenType::RightParen) {
-                                    if self.next_token().lexeme.starts_with("$") {
+                                    if self.next_token().lexeme.starts_with('$') {
                                         params += 1;
                                     }
                                 }
@@ -184,17 +182,13 @@ impl<'a> Parser<'a> {
                                     None
                                 };
                                 let depth = self.brackets.len();
-                                println!("Depth: {depth}");
-                                println!("Next token: {:?}", self.peek());
                                 self.advance();
-                                println!("Depth after: {}", self.brackets.len());
                                 let mut stmts = Vec::new();
                                 while depth != self.brackets.len() {
                                     if let Some(stmt) = self.parse_stmt() {
                                         stmts.push(stmt);
                                     }
                                 }
-                                println!("Parsed stmts: {:?}", stmts);
                                 self.class.add_fn(Function::new(name, stmts, params, return_type));
                                 continue;
                             }
@@ -211,26 +205,29 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_stmt(&mut self) -> Option<Stmt> {
-        loop {
-            let token = self.next_token();
-            println!("Token inside function: {:?}", token);
-            let keyword = match match_keyword(token.lexeme.as_str()) {
-                Some(keyword) => keyword,
-                None => return None,
-            };
-            let line = token.line;
-            return Some(match keyword {
-                Keyword::If => Stmt::new(StmtType::If, line),
-                Keyword::Elseif => Stmt::new(StmtType::Elseif, line),
-                Keyword::For => Stmt::new(StmtType::For, line),
-                Keyword::Foreach => Stmt::new(StmtType::Foreach, line),
-                Keyword::Switch => self.switch_stmt(line),
-                Keyword::Match => self.match_stmt(line),
-                _ => {
-                    println!("Todo {:?}", token);
-                    todo!();
-                },
-            });
+        let token = self.next_token();
+        let keyword = match match_keyword(token.lexeme.as_str()) {
+            Some(keyword) => keyword,
+            None => return None,
+        };
+        let line = token.line;
+        Some(self.create_statement(keyword, line))
+    }
+
+    fn create_statement(&mut self, keyword: Keyword, line: usize) -> Stmt {
+        match keyword {
+            Keyword::If => Stmt::new(StmtType::If, line),
+            Keyword::Elseif => Stmt::new(StmtType::Elseif, line),
+            Keyword::For => Stmt::new(StmtType::For, line),
+            Keyword::Foreach => Stmt::new(StmtType::Foreach, line),
+            Keyword::Switch => self.switch_stmt(line),
+            Keyword::Match => self.match_stmt(line),
+            Keyword::Throw => Stmt::new(StmtType::Throw, line),
+            Keyword::Catch => Stmt::new(StmtType::Catch, line),
+            _ => {
+                println!("Todo line: {line}");
+                todo!();
+            },
         }
     }
 
@@ -255,22 +252,10 @@ impl<'a> Parser<'a> {
                             case_count += 1;
                             continue;
                         }
-                        Keyword::If => Stmt::new(StmtType::If, token.line),
-                        Keyword::Elseif => Stmt::new(StmtType::Elseif, token.line),
-                        Keyword::For => Stmt::new(StmtType::For, token.line),
-                        Keyword::Foreach => Stmt::new(StmtType::Foreach, token.line),
-                        Keyword::Match => {
-                            let line = token.line;
-                            self.match_stmt(line)
-                        }
-                        Keyword::Switch => {
-                            let line = token.line;
-                            self.switch_stmt(line)
-                        }
                         _ => {
-                            println!("Todo {:?}", token);
-                            todo!();
-                        },
+                            let line = token.line;
+                            self.create_statement(keyword, line)
+                        }
                     });
                 }
                 TokenType::RightBrace => {

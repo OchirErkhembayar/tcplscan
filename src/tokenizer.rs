@@ -2,7 +2,7 @@ use std::process;
 
 use crate::{
     error,
-    token::{match_keyword, TokenType},
+    token::TokenType,
 };
 
 #[derive(Debug, PartialEq)]

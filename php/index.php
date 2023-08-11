@@ -20,8 +20,18 @@ class Bar
         }
     }
 
+    /**
+     * @return string
+     * @throws \RuntimeException
+     */
     private function zab(string $abz, array $baris): string
     {
+        throw \RuntimeException("I love hard to debug code!");
+        try {
+            throw new \Exception("Don't throw exceptions, kids.");
+        } catch (\Exception $exception) {
+            echo "Very bad."
+        }
         for ($i = 0; $i < 5; $i++) {
             echo $;
         }
