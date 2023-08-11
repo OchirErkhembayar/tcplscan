@@ -124,24 +124,7 @@ impl<'a> Tokenizer<'a> {
             word.push(self.next_char());
         }
 
-        if start == '$' {
-            while self.peek().is_some_and(|c| c == &'-') && self.peek_next().is_some_and(|c| c == &'>') {
-                word.push(self.next_char());
-                word.push(self.next_char());
-                while self.peek().is_some_and(|c| c.is_alphanumeric() || c == &'_') {
-                    word.push(self.next_char());
-                }
-            }
-        }
-
-        if self.peek().is_some_and(|c| c ==  &'(') {
-            self.make_token(TokenType::Callable, word)
-        } else {
-            self.make_token(
-                match_keyword(word.as_str()).unwrap_or(TokenType::Identifier),
-                word,
-            )
-        }
+        self.make_token(TokenType::Identifier, word)
     }
 
     fn here_doc(&mut self) -> Token {
@@ -211,7 +194,14 @@ impl<'a> Tokenizer<'a> {
             ']' => self.make_token(TokenType::RightBracket, "]".to_string()),
             ',' => self.make_token(TokenType::Comma, ",".to_string()),
             '.' => self.make_token(TokenType::Dot, ".".to_string()),
-            '-' => self.make_token(TokenType::Minus, "-".to_string()),
+            '-' => {
+                if self.peek().is_some_and(|c| c == &'>') {
+                    self.advance();
+                    self.make_token(TokenType::ThinArrow, "->".to_string())
+                } else {
+                    self.make_token(TokenType::Minus, "-".to_string())
+                }
+            },
             '+' => self.make_token(TokenType::Plus, "+".to_string()),
             ';' => self.make_token(TokenType::Semicolon, ";".to_string()),
             '#' => self.make_token(TokenType::Hash, "#".to_string()),

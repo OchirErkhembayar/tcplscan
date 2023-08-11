@@ -78,6 +78,7 @@ pub enum TokenType {
     AndOperator,
     HereDoc,
     FatArrow,
+    ThinArrow,
 
     // Literals
     Identifier,

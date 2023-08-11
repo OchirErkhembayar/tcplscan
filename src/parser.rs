@@ -1,6 +1,6 @@
 use std::process;
 
-use crate::{token::TokenType, tokenizer::Token};
+use crate::{token::{TokenType, match_keyword}, tokenizer::Token};
 
 #[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Stmt {
@@ -31,7 +31,6 @@ pub struct Parser<'a> {
     tokens: &'a [Token],
     pub stmts: Vec<Stmt>,
     brackets: Vec<TokenType>,
-    pub classes: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -40,7 +39,6 @@ impl<'a> Parser<'a> {
             tokens,
             stmts: Vec::new(),
             brackets: Vec::new(),
-            classes: Vec::new(),
         }
     }
 
@@ -92,17 +90,28 @@ impl<'a> Parser<'a> {
         Some(token)
     }
 
-    fn peek(&self) -> Option<&Token> {
-        self.tokens.get(0)
+    fn next_token(&mut self) -> &Token {
+        self.next_token_opt().unwrap_or_else(|| {
+            eprintln!("Expected token. Found none.");
+            process::exit(1);
+        })
     }
 }
 
 impl<'a> Parser<'a> {
     pub fn parse(&mut self) {
-        let mut class_name = String::new();
-        let mut class_defined = false;
         while let Some(token) = self.next_token_opt() {
             let stmt = match token.token_type {
+                TokenType::Identifier => {
+                    if let Some(token_type) = match_keyword(token.lexeme.as_str()) {
+                        match token_type {
+                            TokenType::If => Stmt::new(StmtType::If, token.line),
+                            _ => Stmt::new(StmtType::For, token.line),
+                        }
+                    } else {
+                        continue;
+                    }
+                }
                 TokenType::If => Stmt::new(StmtType::If, token.line),
                 TokenType::Elseif => Stmt::new(StmtType::Elseif, token.line),
                 TokenType::For => Stmt::new(StmtType::For, token.line),
@@ -117,22 +126,6 @@ impl<'a> Parser<'a> {
                 TokenType::Match => {
                     let line = token.line;
                     self.match_stmt(line)
-                }
-                TokenType::Namespace => {
-                    while self.peek().is_some_and(|c| c.token_type != TokenType::Semicolon) {
-                        class_name.push_str(self.next_token_opt().unwrap().lexeme.as_str());
-                    }
-                    continue;
-                }
-                TokenType::Class => {
-                    if !class_defined {
-                        class_name.push_str("\\");
-                        class_name.push_str(self.next_token_opt().unwrap().lexeme.as_str());
-                        self.classes.push(class_name.clone());
-                        println!("I just saved a class! {:?}", self.classes);
-                        class_defined = true;
-                    }
-                    continue;
                 }
                 _ => continue,
             };

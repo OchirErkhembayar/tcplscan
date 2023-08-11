@@ -20,7 +20,6 @@ struct File {
     complexity: HashMap<StmtType, usize>,
     lines: usize,
     last_accessed: usize,
-    dependencies: Vec<String>,
 }
 
 impl File {
@@ -35,12 +34,11 @@ impl File {
             complexity,
             lines,
             last_accessed,
-            dependencies: Vec::new(),
         }
     }
 }
 
-fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>, classes: &mut Vec<String>) {
+fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) {
     dir_entry.for_each(|entry| {
         let entry = entry.unwrap_or_else(|err| {
             eprintln!("ERROR: Failed to parse directory entry, {err}");
@@ -80,7 +78,6 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>, 
             let tokens = Tokenizer::new(&(content.chars().collect::<Vec<_>>())).collect::<Vec<_>>();
             let mut parser = Parser::new(&tokens);
             parser.parse();
-            parser.classes.iter().for_each(|class| classes.push(class.clone()));
             for stmt in parser.stmts {
                 complexity
                     .entry(stmt.kind)
@@ -104,7 +101,7 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>, 
                 eprintln!("ERROR: Failed to read directory, {err}");
                 process::exit(1);
             });
-            read_dir(dir_entry, extension, files, classes);
+            read_dir(dir_entry, extension, files);
         }
     });
 }
@@ -147,9 +144,8 @@ fn main() {
     });
 
     let mut files: Vec<File> = Vec::new();
-    let mut classes: Vec<String> = Vec::new();
 
-    read_dir(dir_entry, extension, &mut files, &mut classes);
+    read_dir(dir_entry, extension, &mut files);
     println!("Finished scanning.");
 
     files.sort_by(|a, b| {
@@ -173,10 +169,6 @@ fn main() {
         }
         println!("Overall cyclomatic complexity score: {score}");
         println!("* ---------- *");
-    }
-    
-    for class in classes.iter() {
-        println!("Class: {class}");
     }
 }
 
