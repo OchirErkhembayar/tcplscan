@@ -1,6 +1,6 @@
 use std::process;
 
-use crate::{token::{TokenType, match_keyword}, tokenizer::Token};
+use crate::{token::{TokenType, match_keyword, Keyword}, tokenizer::Token};
 
 #[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Stmt {
@@ -23,14 +23,60 @@ pub enum StmtType {
     Foreach,
     Throw,
     Catch,
-    Switch { case_count: usize },
+    Switch { 
+        case_count: usize,
+        stmts: Vec<Stmt>,
+    },
     Match { case_count: usize },
+}
+
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub struct Class {
+    pub name: String,
+    pub functions: Vec<Function>
+}
+
+impl Class {
+    fn new() -> Self {
+        Self {
+            name: String::new(),
+            functions: Vec::new(),
+        }
+    }
+
+    fn push_str(&mut self, name: &str) {
+        self.name.push_str(name);
+    }
+
+    fn add_fn(&mut self, function: Function) {
+        self.functions.push(function);
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub struct Function {
+    pub stmts: Vec<Stmt>,
+    pub name: String,
+    pub params: usize,
+    pub return_type: Option<String>,
+}
+
+impl Function {
+    fn new(name: String, stmts: Vec<Stmt>, params: usize, return_type: Option<String>) -> Self {
+        Self { 
+            name, 
+            stmts,
+            params,
+            return_type,
+        }
+    }
 }
 
 pub struct Parser<'a> {
     tokens: &'a [Token],
     pub stmts: Vec<Stmt>,
     brackets: Vec<TokenType>,
+    pub class: Class,
 }
 
 impl<'a> Parser<'a> {
@@ -39,6 +85,7 @@ impl<'a> Parser<'a> {
             tokens,
             stmts: Vec::new(),
             brackets: Vec::new(),
+            class: Class::new(),
         }
     }
 
@@ -96,6 +143,10 @@ impl<'a> Parser<'a> {
             process::exit(1);
         })
     }
+
+    fn peek(&self) -> Option<&Token> {
+        self.tokens.get(0)
+    }
 }
 
 impl<'a> Parser<'a> {
@@ -105,27 +156,53 @@ impl<'a> Parser<'a> {
                 TokenType::Identifier => {
                     if let Some(token_type) = match_keyword(token.lexeme.as_str()) {
                         match token_type {
-                            TokenType::If => Stmt::new(StmtType::If, token.line),
+                            Keyword::Namespace => {
+                                let namespace = self.next_token().lexeme.clone();
+                                self.class.push_str(namespace.as_str());
+                                continue;
+                            }
+                            Keyword::Class => {
+                                let name = self.next_token().lexeme.clone();
+                                self.class.push_str("\\");
+                                self.class.push_str(name.as_str());
+                                continue;
+                            }
+                            Keyword::Function => {
+                                println!("Starting a function {:?}", self.peek());
+                                let name = self.next_token().lexeme.clone();
+                                let mut params = 0;
+                                while self.peek().is_some_and(|t| t.token_type != TokenType::RightParen) {
+                                    if self.next_token().lexeme.starts_with("$") {
+                                        params += 1;
+                                    }
+                                }
+                                self.advance();
+                                let return_type = if self.peek().is_some_and(|t| t.token_type == TokenType::Colon) {
+                                    self.advance();
+                                    Some(self.next_token().lexeme.clone())
+                                } else {
+                                    None
+                                };
+                                let depth = self.brackets.len();
+                                println!("Depth: {depth}");
+                                println!("Next token: {:?}", self.peek());
+                                self.advance();
+                                println!("Depth after: {}", self.brackets.len());
+                                let mut stmts = Vec::new();
+                                while depth != self.brackets.len() {
+                                    if let Some(stmt) = self.parse_stmt() {
+                                        stmts.push(stmt);
+                                    }
+                                }
+                                println!("Parsed stmts: {:?}", stmts);
+                                self.class.add_fn(Function::new(name, stmts, params, return_type));
+                                continue;
+                            }
                             _ => Stmt::new(StmtType::For, token.line),
                         }
                     } else {
                         continue;
                     }
-                }
-                TokenType::If => Stmt::new(StmtType::If, token.line),
-                TokenType::Elseif => Stmt::new(StmtType::Elseif, token.line),
-                TokenType::For => Stmt::new(StmtType::For, token.line),
-                TokenType::Foreach => Stmt::new(StmtType::Foreach, token.line),
-                TokenType::Function => Stmt::new(StmtType::Function, token.line),
-                TokenType::Throw => Stmt::new(StmtType::Throw, token.line),
-                TokenType::Catch => Stmt::new(StmtType::Catch, token.line),
-                TokenType::Switch => {
-                    let line = token.line;
-                    self.switch_stmt(line)
-                }
-                TokenType::Match => {
-                    let line = token.line;
-                    self.match_stmt(line)
                 }
                 _ => continue,
             };
@@ -133,9 +210,34 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_stmt(&mut self) -> Option<Stmt> {
+        loop {
+            let token = self.next_token();
+            println!("Token inside function: {:?}", token);
+            let keyword = match match_keyword(token.lexeme.as_str()) {
+                Some(keyword) => keyword,
+                None => return None,
+            };
+            let line = token.line;
+            return Some(match keyword {
+                Keyword::If => Stmt::new(StmtType::If, line),
+                Keyword::Elseif => Stmt::new(StmtType::Elseif, line),
+                Keyword::For => Stmt::new(StmtType::For, line),
+                Keyword::Foreach => Stmt::new(StmtType::Foreach, line),
+                Keyword::Switch => self.switch_stmt(line),
+                Keyword::Match => self.match_stmt(line),
+                _ => {
+                    println!("Todo {:?}", token);
+                    todo!();
+                },
+            });
+        }
+    }
+
     fn switch_stmt(&mut self, line: usize) -> Stmt {
         let mut case_count = 0;
         let depth = self.brackets.len();
+        let mut stmts = Vec::new();
         loop {
             let token = self.next_token_opt().unwrap_or_else(|| {
                 eprintln!("Unterminated switch statement");
@@ -143,41 +245,33 @@ impl<'a> Parser<'a> {
             });
 
             match token.token_type {
-                TokenType::Case => case_count += 1,
-                TokenType::Default => break,
-                TokenType::Match => {
-                    let line = token.line;
-                    let stmt = self.match_stmt(line);
-                    self.stmts.push(stmt);
-                }
-                TokenType::Switch => {
-                    let line = token.line;
-                    let stmt = self.switch_stmt(line);
-                    self.stmts.push(stmt);
-                }
-                TokenType::If => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::If, line));
-                }
-                TokenType::Elseif => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::Elseif, line));
-                }
-                TokenType::For => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::For, line));
-                }
-                TokenType::Foreach => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::Foreach, line));
-                }
-                TokenType::Throw => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::Throw, line));
-                }
-                TokenType::Catch => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::Catch, line));
+                TokenType::Identifier => {
+                    let keyword = match match_keyword(token.lexeme.as_str()) {
+                        Some(keyword) => keyword,
+                        None => continue,
+                    };
+                    stmts.push(match keyword {
+                        Keyword::Case => {
+                            case_count += 1;
+                            continue;
+                        }
+                        Keyword::If => Stmt::new(StmtType::If, token.line),
+                        Keyword::Elseif => Stmt::new(StmtType::Elseif, token.line),
+                        Keyword::For => Stmt::new(StmtType::For, token.line),
+                        Keyword::Foreach => Stmt::new(StmtType::Foreach, token.line),
+                        Keyword::Match => {
+                            let line = token.line;
+                            self.match_stmt(line)
+                        }
+                        Keyword::Switch => {
+                            let line = token.line;
+                            self.switch_stmt(line)
+                        }
+                        _ => {
+                            println!("Todo {:?}", token);
+                            todo!();
+                        },
+                    });
                 }
                 TokenType::RightBrace => {
                     if self.brackets.len() == depth {
@@ -187,7 +281,7 @@ impl<'a> Parser<'a> {
                 _ => continue,
             }
         }
-        Stmt::new(StmtType::Switch { case_count }, line)
+        Stmt::new(StmtType::Switch { case_count, stmts }, line)
     }
 
     fn match_stmt(&mut self, line: usize) -> Stmt {
@@ -202,39 +296,6 @@ impl<'a> Parser<'a> {
             match token.token_type {
                 TokenType::FatArrow => case_count += 1,
                 TokenType::Default => break,
-                TokenType::Match => {
-                    let line = token.line;
-                    self.match_stmt(line);
-                }
-                TokenType::Switch => {
-                    let line = token.line;
-                    let stmt = self.switch_stmt(line);
-                    self.stmts.push(stmt);
-                }
-                TokenType::If => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::If, line));
-                }
-                TokenType::Elseif => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::Elseif, line));
-                }
-                TokenType::For => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::For, line));
-                }
-                TokenType::Foreach => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::Foreach, line));
-                }
-                TokenType::Throw => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::Throw, line));
-                }
-                TokenType::Catch => {
-                    let line = token.line;
-                    self.stmts.push(Stmt::new(StmtType::Catch, line));
-                }
                 TokenType::RightBrace => {
                     if self.brackets.len() == depth {
                         break;

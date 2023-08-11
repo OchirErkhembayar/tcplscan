@@ -2,37 +2,40 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 lazy_static! {
-    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
+    static ref KEYWORDS: HashMap<&'static str, Keyword> = {
         let mut map = HashMap::new();
-        map.insert("and", TokenType::And);
-        map.insert("or", TokenType::Or);
-        map.insert("xor", TokenType::Xor);
-        map.insert("class", TokenType::Class);
-        map.insert("else", TokenType::Else);
-        map.insert("$this", TokenType::This);
-        map.insert("false", TokenType::False);
-        map.insert("function", TokenType::Function);
-        map.insert("for", TokenType::For);
-        map.insert("foreach", TokenType::Foreach);
-        map.insert("if", TokenType::If);
-        map.insert("elseif", TokenType::Elseif);
-        map.insert("while", TokenType::While);
-        map.insert("match", TokenType::Match);
-        map.insert("switch", TokenType::Switch);
-        map.insert("declare", TokenType::Declare);
-        map.insert("strict_types", TokenType::StrictTypes);
-        map.insert("namespace", TokenType::Namespace);
-        map.insert("class", TokenType::Class);
-        map.insert("case", TokenType::Case);
-        map.insert("default", TokenType::Default);
-        map.insert("throw", TokenType::Throw);
-        map.insert("catch", TokenType::Catch);
+        map.insert("if", Keyword::If);
+        map.insert("elseif", Keyword::Elseif);
+        map.insert("for", Keyword::For);
+        map.insert("foreach", Keyword::Foreach);
+        map.insert("match", Keyword::Match);
+        map.insert("switch", Keyword::Switch);
+        map.insert("while", Keyword::While);
+        map.insert("case", Keyword::Case);
+        map.insert("namespace", Keyword::Namespace);
+        map.insert("class", Keyword::Class);
+        map.insert("function", Keyword::Function);
         map
     };
 }
 
-pub fn match_keyword(keyword: &str) -> Option<TokenType> {
+pub fn match_keyword(keyword: &str) -> Option<Keyword> {
     KEYWORDS.get(keyword).copied()
+}
+
+#[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]
+pub enum Keyword {
+    If,
+    Elseif,
+    For,
+    Foreach,
+    Match,
+    Switch,
+    While,
+    Case,
+    Namespace,
+    Class,
+    Function,
 }
 
 #[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]

@@ -119,7 +119,7 @@ impl<'a> Tokenizer<'a> {
         let mut word = start.to_string();
         while self
             .peek()
-            .is_some_and(|c| c.is_alphanumeric() || c == &'_')
+            .is_some_and(|c| c.is_alphanumeric() || c == &'_' || c == &'\\')
         {
             word.push(self.next_char());
         }
@@ -231,7 +231,6 @@ impl<'a> Tokenizer<'a> {
                 }
                 self.make_token(TokenType::Slash, "/".to_string())
             }
-            '\\' => self.make_token(TokenType::BackSlash, "\\".to_string()),
             '*' => self.make_token(TokenType::Star, "*".to_string()),
             '?' => self.make_token(TokenType::Question, "?".to_string()),
             ':' => self.make_token(TokenType::Colon, ":".to_string()),
@@ -302,7 +301,7 @@ impl<'a> Tokenizer<'a> {
             '\'' => self.string('\''),
             '0'..='9' => self.number(),
             '@' => self.make_token(TokenType::AtSign, "@".to_string()),
-            '_' | 'a'..='z' | 'A'..='Z' | '$' => self.identifier(char),
+            '_' | 'a'..='z' | 'A'..='Z' | '$' | '\\' => self.identifier(char),
             _ => {
                 println!(
                     "{char} line {}, peek next 2: {}{}",

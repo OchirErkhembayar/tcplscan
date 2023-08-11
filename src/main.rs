@@ -1,5 +1,5 @@
 use crate::parser::Parser;
-use parser::StmtType;
+use parser::{StmtType, Class};
 use std::{
     collections::HashMap,
     env,
@@ -17,6 +17,7 @@ mod tokenizer;
 #[derive(Debug)]
 struct File {
     path: String,
+    class: Class,
     complexity: HashMap<StmtType, usize>,
     lines: usize,
     last_accessed: usize,
@@ -25,12 +26,14 @@ struct File {
 impl File {
     fn new(
         path: &str,
+        class: Class,
         complexity: HashMap<StmtType, usize>,
         lines: usize,
         last_accessed: usize,
     ) -> Self {
         Self {
             path: path.to_string(),
+            class,
             complexity,
             lines,
             last_accessed,
@@ -87,6 +90,7 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
             println!("Complexity: {:?}", complexity);
             files.push(File::new(
                 path.into_os_string().into_string().unwrap().as_str(),
+                parser.class,
                 complexity,
                 match tokens.last() {
                     Some(token) => token.line,
@@ -159,15 +163,28 @@ fn main() {
     println!("Top files");
     println!("* ---------- *");
     for (i, file) in files.iter().take(top_files).enumerate() {
-        println!("{}. complexity file: {}", i + 1, file.path);
+        println!("{i}. {}", file.class.name);
         println!("Last accessed {} hours ago", file.last_accessed);
+        println!("Path: {}", file.path);
         println!("Lines: {}", file.lines);
-        let mut score = 0;
-        for stmt in file.complexity.iter() {
-            println!("{:?}", stmt);
-            score += stmt.1;
+        println!("Functions");
+        for function in file.class.functions.iter() {
+            println!("* -------- *");
+            println!("  Name: {}", function.name);
+            let return_type = if function.name == "__construct" {
+                "self".to_string()
+            } else {
+                match &function.return_type {
+                    Some(return_type) => return_type.clone(),
+                    None => "Not provided".to_string(),
+                }
+            };
+            println!("  Return type: {return_type}");
+            println!("  Param count: {}", function.params);
+            for stmt in function.stmts.iter() {
+                println!("  {:?}", stmt);
+            }
         }
-        println!("Overall cyclomatic complexity score: {score}");
         println!("* ---------- *");
     }
 }
