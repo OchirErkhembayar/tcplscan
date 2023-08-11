@@ -30,3 +30,6 @@ if ($i = 0) {
 $this->something->something;
 $this->fun->call();
 
+namespace Foo\Bar;
+
+class Foobar {}
