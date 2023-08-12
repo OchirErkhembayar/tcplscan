@@ -142,7 +142,8 @@ fn main() {
         println!("Last accessed {} hours ago", file.last_accessed);
         println!("Path: {}", file.path);
         println!("Lines: {}", file.lines);
-        println!("Functions");
+        println!("Average complexity: {}", file.class.average_complexity());
+        println!("Functions: {}", file.class.functions.len());
         for function in file.class.functions.iter() {
             println!("* -------- *");
             println!("  Name: {}", function.name);
@@ -156,6 +157,7 @@ fn main() {
             };
             println!("  Return type: {return_type}");
             println!("  Param count: {}", function.params);
+            println!("  Complexity: {}", function.complexity());
             for stmt in function.stmts.iter() {
                 println!("  {:?}", stmt);
             }

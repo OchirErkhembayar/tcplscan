@@ -17,7 +17,12 @@ class Bar
             echo "foo!";
         } elseif (1) {
             echo "Bar!";
+        } elseif (2) {
+            echo "Two!";
+        } else {
+            echo "Else!";
         }
+        echo "\n";
     }
 
     function noReturn() {}

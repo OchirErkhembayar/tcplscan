@@ -5,7 +5,7 @@ use crate::{
     tokenizer::Token,
 };
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone)]
+#[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Stmt {
     pub kind: StmtType,
     pub line: usize,
@@ -17,25 +17,19 @@ impl Stmt {
     }
 
     fn complexity(&self) -> usize {
-        let kind = self.kind.clone();
-        match kind {
+        match self.kind {
             StmtType::Match { case_count } => {
                 case_count
             },
             StmtType::Switch { case_count, stmts } => {
-                let mut sum = 0;
-                sum += case_count;
-                for stmt in stmts.iter() {
-                    sum += stmt.complexity();
-                }
-                sum
+                case_count + stmts.iter().reduce(|a, b| a + b.complexity())
             },
             _ => 1
         }
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub enum StmtType {
     If,
     Elseif,
@@ -72,15 +66,6 @@ impl Class {
     fn add_fn(&mut self, function: Function) {
         self.functions.push(function);
     }
-
-    pub fn average_complexity(&self) -> f32 {
-        let count = self.functions.len() as f32;
-        let mut sum = 0.0;
-        for function in self.functions.iter() {
-            sum += function.complexity() as f32;
-        }
-        sum / count
-    }
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -99,14 +84,6 @@ impl Function {
             params,
             return_type,
         }
-    }
-
-    pub fn complexity(&self) -> usize {
-        let mut sum = 0;
-        for stmt in self.stmts.iter() {
-            sum += stmt.complexity();
-        }
-        sum
     }
 }
 
