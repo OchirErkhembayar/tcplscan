@@ -20,6 +20,8 @@ class Bar
         }
     }
 
+    function noReturn() {}
+
     /**
      * @return string
      * @throws \RuntimeException
@@ -78,6 +80,14 @@ class Bar
                 echo $i;
                 break;
         }
+
+        $var = <<<'FOO'
+            la la la
+        FOO;
+        $var = <<<FOO
+            la la la
+        FOO;
     }
 }
+// Lol hi
 

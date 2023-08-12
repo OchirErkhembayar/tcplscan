@@ -1,6 +1,9 @@
 use std::process;
 
-use crate::{token::{TokenType, match_keyword, Keyword}, tokenizer::Token};
+use crate::{
+    token::{match_keyword, Keyword, TokenType},
+    tokenizer::Token,
+};
 
 #[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Stmt {
@@ -22,17 +25,14 @@ pub enum StmtType {
     Foreach,
     Throw,
     Catch,
-    Switch { 
-        case_count: usize,
-        stmts: Vec<Stmt>,
-    },
+    Switch { case_count: usize, stmts: Vec<Stmt> },
     Match { case_count: usize },
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Class {
     pub name: String,
-    pub functions: Vec<Function>
+    pub functions: Vec<Function>,
 }
 
 impl Class {
@@ -62,8 +62,8 @@ pub struct Function {
 
 impl Function {
     fn new(name: String, stmts: Vec<Stmt>, params: usize, return_type: Option<String>) -> Self {
-        Self { 
-            name, 
+        Self {
+            name,
             stmts,
             params,
             return_type,
@@ -169,13 +169,19 @@ impl<'a> Parser<'a> {
                             Keyword::Function => {
                                 let name = self.next_token().lexeme.clone();
                                 let mut params = 0;
-                                while self.peek().is_some_and(|t| t.token_type != TokenType::RightParen) {
+                                while self
+                                    .peek()
+                                    .is_some_and(|t| t.token_type != TokenType::RightParen)
+                                {
                                     if self.next_token().lexeme.starts_with('$') {
                                         params += 1;
                                     }
                                 }
                                 self.advance();
-                                let return_type = if self.peek().is_some_and(|t| t.token_type == TokenType::Colon) {
+                                let return_type = if self
+                                    .peek()
+                                    .is_some_and(|t| t.token_type == TokenType::Colon)
+                                {
                                     self.advance();
                                     Some(self.next_token().lexeme.clone())
                                 } else {
@@ -189,7 +195,8 @@ impl<'a> Parser<'a> {
                                         stmts.push(stmt);
                                     }
                                 }
-                                self.class.add_fn(Function::new(name, stmts, params, return_type));
+                                self.class
+                                    .add_fn(Function::new(name, stmts, params, return_type));
                                 continue;
                             }
                             _ => Stmt::new(StmtType::For, token.line),
@@ -227,7 +234,7 @@ impl<'a> Parser<'a> {
             _ => {
                 println!("Todo line: {line}");
                 todo!();
-            },
+            }
         }
     }
 

@@ -1,9 +1,6 @@
 use std::process;
 
-use crate::{
-    error,
-    token::TokenType,
-};
+use crate::{error, token::TokenType};
 
 #[derive(Debug, PartialEq)]
 pub struct Token {
@@ -84,13 +81,13 @@ impl<'a> Tokenizer<'a> {
         let mut string = String::new();
         let mut escaped = false;
         while (!self.peek().is_some_and(|c| c == &quote_type) || escaped) && !self.code.is_empty() {
-            let previous = self.next_char();
-            if previous == '\\' {
+            let char = self.next_char();
+            if char == '\\' {
                 escaped = !escaped;
             } else {
                 escaped = false;
             }
-            string.push(previous);
+            string.push(char);
         }
         if self.code.is_empty() {
             error("Unterminated string", self.line);
@@ -132,10 +129,10 @@ impl<'a> Tokenizer<'a> {
         let mut doc = String::new();
         if self.peek().is_some_and(|c| c == &'\'' || c == &'"') {
             let opening = self.next_char();
-            self.advance();
             while self.peek().is_some_and(|c| c != &opening) {
                 title.push(self.next_char());
             }
+            self.advance();
         } else {
             while self.peek().is_some_and(|c| c != &'\n') {
                 title.push(self.next_char());
@@ -151,15 +148,10 @@ impl<'a> Tokenizer<'a> {
                 }
             }
             if found {
-                for char in title.iter() {
-                    doc.push(*char);
-                    self.advance();
-                }
+                title.iter().for_each(|_| self.advance());
+                break;
             } else {
                 doc.push(self.next_char());
-            }
-            if found {
-                break;
             }
         }
 
@@ -183,9 +175,7 @@ impl<'a> Tokenizer<'a> {
         };
         let token = match char {
             ' ' | '\r' | '\t' => return self.scan_token(),
-            '\n' => {
-                return self.scan_token();
-            }
+            '\n' => return self.scan_token(),
             '{' => self.make_token(TokenType::LeftBrace, "{".to_string()),
             '}' => self.make_token(TokenType::RightBrace, "}".to_string()),
             '(' => self.make_token(TokenType::LeftParen, "(".to_string()),
@@ -201,7 +191,7 @@ impl<'a> Tokenizer<'a> {
                 } else {
                     self.make_token(TokenType::Minus, "-".to_string())
                 }
-            },
+            }
             '+' => self.make_token(TokenType::Plus, "+".to_string()),
             ';' => self.make_token(TokenType::Semicolon, ";".to_string()),
             '#' => self.make_token(TokenType::Hash, "#".to_string()),
@@ -224,9 +214,6 @@ impl<'a> Tokenizer<'a> {
                         self.advance();
                     }
                     self.advance();
-                    if self.code.is_empty() {
-                        return None;
-                    }
                     return self.scan_token();
                 }
                 self.make_token(TokenType::Slash, "/".to_string())
@@ -267,16 +254,14 @@ impl<'a> Tokenizer<'a> {
             }
             '<' => {
                 if self.match_char('<') && self.match_char('<') {
-                    return Some(self.here_doc());
-                }
-                if self.match_char('?')
+                    self.here_doc()
+                } else if self.match_char('?')
                     && self.match_char('p')
                     && self.match_char('h')
                     && self.match_char('p')
                 {
-                    return Some(self.make_token(TokenType::PhpTag, "<?php".to_string()));
-                }
-                if self.match_char('=') {
+                    self.make_token(TokenType::PhpTag, "<?php".to_string())
+                } else if self.match_char('=') {
                     self.make_token(TokenType::LessEqual, "<=".to_string())
                 } else {
                     self.make_token(TokenType::Less, "<".to_string())
@@ -321,38 +306,6 @@ impl<'a> Tokenizer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_simple_string() {
-        let code = " \
-                if elseif while switch match
-            "
-        .chars()
-        .collect::<Vec<_>>();
-        let mut tokenizer = Tokenizer::new(&code);
-
-        assert_eq!(
-            Token::new(TokenType::If, 1, "if".to_string()),
-            tokenizer.next().unwrap()
-        );
-        assert_eq!(
-            Token::new(TokenType::Elseif, 1, "elseif".to_string()),
-            tokenizer.next().unwrap()
-        );
-        assert_eq!(
-            Token::new(TokenType::While, 1, "while".to_string()),
-            tokenizer.next().unwrap()
-        );
-        assert_eq!(
-            Token::new(TokenType::Switch, 1, "switch".to_string()),
-            tokenizer.next().unwrap()
-        );
-        assert_eq!(
-            Token::new(TokenType::Match, 1, "match".to_string()),
-            tokenizer.next().unwrap()
-        );
-        assert_eq!(None, tokenizer.next());
-    }
 
     #[test]
     fn test_string() {

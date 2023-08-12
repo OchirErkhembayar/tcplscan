@@ -1,7 +1,6 @@
 use crate::parser::Parser;
-use parser::{StmtType, Class};
+use parser::Class;
 use std::{
-    collections::HashMap,
     env,
     fs::{self, ReadDir},
     process,
@@ -18,23 +17,15 @@ mod tokenizer;
 struct File {
     path: String,
     class: Class,
-    complexity: HashMap<StmtType, usize>,
     lines: usize,
     last_accessed: usize,
 }
 
 impl File {
-    fn new(
-        path: &str,
-        class: Class,
-        complexity: HashMap<StmtType, usize>,
-        lines: usize,
-        last_accessed: usize,
-    ) -> Self {
+    fn new(path: &str, class: Class, lines: usize, last_accessed: usize) -> Self {
         Self {
             path: path.to_string(),
             class,
-            complexity,
             lines,
             last_accessed,
         }
@@ -75,23 +66,14 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
                 eprintln!("ERROR: Failed to read accessed date, {err}");
                 process::exit(1);
             });
-            let last_accessed = now.duration_since(accessed).unwrap().as_secs() / 60 / 60;
+            let last_accessed = now.duration_since(accessed).unwrap().as_secs() / 3600;
             println!("Last accessed {:?} hours ago", last_accessed);
-            let mut complexity: HashMap<StmtType, usize> = HashMap::new();
             let tokens = Tokenizer::new(&(content.chars().collect::<Vec<_>>())).collect::<Vec<_>>();
             let mut parser = Parser::new(&tokens);
             parser.parse();
-            for stmt in parser.stmts {
-                complexity
-                    .entry(stmt.kind)
-                    .and_modify(|count| *count += 1)
-                    .or_insert(1);
-            }
-            println!("Complexity: {:?}", complexity);
             files.push(File::new(
                 path.into_os_string().into_string().unwrap().as_str(),
                 parser.class,
-                complexity,
                 match tokens.last() {
                     Some(token) => token.line,
                     None => 0,
@@ -152,13 +134,6 @@ fn main() {
     read_dir(dir_entry, extension, &mut files);
     println!("Finished scanning.");
 
-    files.sort_by(|a, b| {
-        b.complexity
-            .values()
-            .sum::<usize>()
-            .cmp(&a.complexity.values().sum::<usize>())
-    });
-
     println!();
     println!("Top files");
     println!("* ---------- *");
@@ -193,4 +168,3 @@ fn error(msg: &str, line: usize) {
     eprintln!("ERR: line: {line} {msg}");
     process::exit(1);
 }
-
