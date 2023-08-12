@@ -19,9 +19,7 @@ impl Stmt {
     fn complexity(&self) -> usize {
         let kind = self.kind.clone();
         match kind {
-            StmtType::Match { case_count } => {
-                case_count
-            },
+            StmtType::Match { case_count } => case_count,
             StmtType::Switch { case_count, stmts } => {
                 let mut sum = 0;
                 sum += case_count;
@@ -29,8 +27,8 @@ impl Stmt {
                     sum += stmt.complexity();
                 }
                 sum
-            },
-            _ => 1
+            }
+            _ => 1,
         }
     }
 }
@@ -47,9 +45,7 @@ pub enum StmtType {
     Match { case_count: usize },
 }
 
-impl StmtType {
-
-}
+impl StmtType {}
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Class {
