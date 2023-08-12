@@ -69,13 +69,26 @@ impl Class {
         self.functions.push(function);
     }
 
-    pub fn average_complexity(&self) -> f32 {
-        let count = self.functions.len() as f32;
+    pub fn highest_complexity_function(&self) -> usize {
+        if self.functions.len() == 0 {
+            return 0;
+        }
+        let mut max = 0;
+        for function in self.functions.iter() {
+            max = std::cmp::max(max, function.complexity());
+        }
+        max
+    }
+
+    pub fn average_complexity(&self) -> f64 {
+        if self.functions.len() == 0 {
+            return 0.0;
+        }
         let mut sum = 0.0;
         for function in self.functions.iter() {
-            sum += function.complexity() as f32;
+            sum += function.complexity() as f64;
         }
-        sum / count
+        sum / self.functions.len() as f64
     }
 }
 
@@ -102,7 +115,7 @@ impl Function {
         for stmt in self.stmts.iter() {
             sum += stmt.complexity();
         }
-        sum
+        sum + 1
     }
 }
 
@@ -191,11 +204,13 @@ impl<'a> Parser<'a> {
                     if let Some(token_type) = match_keyword(token.lexeme.as_str()) {
                         match token_type {
                             Keyword::Namespace => {
+                                println!("Namespace: {:?}", self.peek());
                                 let namespace = self.next_token().lexeme.clone();
                                 self.class.push_str(namespace.as_str());
                                 continue;
                             }
                             Keyword::Class => {
+                                println!("Class: {:?}", self.peek());
                                 let name = self.next_token().lexeme.clone();
                                 self.class.push_str("\\");
                                 self.class.push_str(name.as_str());
@@ -237,6 +252,17 @@ impl<'a> Parser<'a> {
                             _ => Stmt::new(StmtType::For, token.line),
                         }
                     } else {
+                        // Bit of a hack to get past things like Foo::class which was messing
+                        // things up
+                        if self.peek().is_some_and(|t| {
+                            vec![
+                                TokenType::ColonColon,
+                                TokenType::ThinArrow,
+                            ].contains(&t.token_type)
+                        }) {
+                            self.advance();
+                            self.advance();
+                        }
                         continue;
                     }
                 }
@@ -248,16 +274,26 @@ impl<'a> Parser<'a> {
 
     fn parse_stmt(&mut self) -> Option<Stmt> {
         let token = self.next_token();
+        if token.token_type != TokenType::Identifier {
+            return None;
+        }
+        if vec![
+            TokenType::ColonColon,
+            TokenType::ThinArrow,
+        ].contains(&token.token_type) {
+            self.advance();
+            return None;
+        }
         let keyword = match match_keyword(token.lexeme.as_str()) {
             Some(keyword) => keyword,
             None => return None,
         };
         let line = token.line;
-        Some(self.create_statement(keyword, line))
+        self.create_statement(keyword, line)
     }
 
-    fn create_statement(&mut self, keyword: Keyword, line: usize) -> Stmt {
-        match keyword {
+    fn create_statement(&mut self, keyword: Keyword, line: usize) -> Option<Stmt> {
+        Some(match keyword {
             Keyword::If => Stmt::new(StmtType::If, line),
             Keyword::Elseif => Stmt::new(StmtType::Elseif, line),
             Keyword::For => Stmt::new(StmtType::For, line),
@@ -266,11 +302,8 @@ impl<'a> Parser<'a> {
             Keyword::Match => self.match_stmt(line),
             Keyword::Throw => Stmt::new(StmtType::Throw, line),
             Keyword::Catch => Stmt::new(StmtType::Catch, line),
-            _ => {
-                println!("Todo line: {line}");
-                todo!();
-            }
-        }
+            _ => return None,
+        })
     }
 
     fn switch_stmt(&mut self, line: usize) -> Stmt {
@@ -296,7 +329,10 @@ impl<'a> Parser<'a> {
                         }
                         _ => {
                             let line = token.line;
-                            self.create_statement(keyword, line)
+                            match self.create_statement(keyword, line) {
+                                Some(stmt) => stmt,
+                                None => continue,
+                            }
                         }
                     });
                 }
@@ -319,6 +355,7 @@ impl<'a> Parser<'a> {
                 eprintln!("Unterminated match statement");
                 process::exit(1);
             });
+            println!("Token inside match: {:?}", token);
 
             match token.token_type {
                 TokenType::FatArrow => case_count += 1,

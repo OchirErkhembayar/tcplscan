@@ -33,14 +33,14 @@ class Bar
      */
     private function zab(string $abz, array $baris): string
     {
-        throw \RuntimeException("I love hard to debug code!");
+        throw new \RuntimeException("I love hard to debug code!");
         try {
             throw new \Exception("Don't throw exceptions, kids.");
         } catch (\Exception $exception) {
-            echo "Very bad."
+            echo "Very bad.";
         }
         for ($i = 0; $i < 5; $i++) {
-            echo $;
+            echo $i;
         }
         foreach ($baris as $bari) {
             \var_dump($bari);
@@ -50,11 +50,11 @@ class Bar
 
     private function switcheroo($i): void
     {
-        match ($i) {
-            1 => echo "Foo!",
-            2 => echo "Bar!",
-            3 => echo "Baz!",
-            default => echo "Boink!",
+        echo match ($i) {
+            1 => "Foo!",
+            2 => "Bar!",
+            3 => "Baz!",
+            default => "Boink!",
         };
         switch ($i) {
             case 1:
@@ -92,6 +92,7 @@ class Bar
         $var = <<<FOO
             la la la
         FOO;
+        $var::class;
     }
 }
 // Lol hi

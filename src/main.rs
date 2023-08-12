@@ -134,17 +134,21 @@ fn main() {
     read_dir(dir_entry, extension, &mut files);
     println!("Finished scanning.");
 
+    files.sort_by(|a, b| b.class.average_complexity().total_cmp(&a.class.average_complexity()));
+
     println!();
     println!("Top files");
     println!("* ---------- *");
     for (i, file) in files.iter().take(top_files).enumerate() {
-        println!("{i}. {}", file.class.name);
+        let class = &file.class;
+        println!("{i}. {}", class.name);
         println!("Last accessed {} hours ago", file.last_accessed);
         println!("Path: {}", file.path);
         println!("Lines: {}", file.lines);
-        println!("Average complexity: {}", file.class.average_complexity());
-        println!("Functions: {}", file.class.functions.len());
-        for function in file.class.functions.iter() {
+        println!("Average cyclomatic complexity: {}", class.average_complexity());
+        println!("Max cyclomatic complexity: {}", class.highest_complexity_function());
+        println!("Functions: {}", class.functions.len());
+        for function in class.functions.iter() {
             println!("* -------- *");
             println!("  Name: {}", function.name);
             let return_type = if function.name == "__construct" {
@@ -157,7 +161,7 @@ fn main() {
             };
             println!("  Return type: {return_type}");
             println!("  Param count: {}", function.params);
-            println!("  Complexity: {}", function.complexity());
+            println!("  Cyclomatic complexity: {}", function.complexity());
             for stmt in function.stmts.iter() {
                 println!("  {:?}", stmt);
             }

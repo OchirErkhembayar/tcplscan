@@ -86,6 +86,7 @@ pub enum TokenType {
     HereDoc,
     FatArrow,
     ThinArrow,
+    ColonColon,
 
     // Literals
     Identifier,

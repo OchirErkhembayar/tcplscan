@@ -220,7 +220,14 @@ impl<'a> Tokenizer<'a> {
             }
             '*' => self.make_token(TokenType::Star, "*".to_string()),
             '?' => self.make_token(TokenType::Question, "?".to_string()),
-            ':' => self.make_token(TokenType::Colon, ":".to_string()),
+            ':' => {
+                if self.peek().is_some_and(|c| c == &':') {
+                    self.advance();
+                    self.make_token(TokenType::ColonColon, "::".to_string())
+                } else {
+                    self.make_token(TokenType::Colon, ":".to_string())
+                }
+            }
             '!' => {
                 if self.match_char('=') {
                     if self.match_char('=') {
