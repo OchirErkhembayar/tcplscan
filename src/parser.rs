@@ -129,13 +129,15 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
-        Self {
+        let mut parser = Self {
             tokens,
             stmts: Vec::new(),
             brackets: Vec::new(),
             class: Class::new(),
             classes: Vec::new(),
-        }
+        };
+        parser.parse();
+        parser
     }
 
     fn closing_bracket(&mut self, token_type: TokenType) {

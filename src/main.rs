@@ -21,6 +21,13 @@ struct File {
     last_accessed: usize,
 }
 
+#[derive(Debug)]
+struct RawFile {
+    path: String,
+    content: Vec<char>,
+    last_accessed: usize,
+}
+
 impl File {
     fn new(path: &str, class: Class, lines: usize, last_accessed: usize) -> Self {
         Self {
@@ -32,7 +39,7 @@ impl File {
     }
 }
 
-fn read_dir(dir_entry: ReadDir, files: &mut Vec<File>) {
+fn read_dir(dir_entry: ReadDir, files: &mut Vec<RawFile>) {
     dir_entry.for_each(|entry| {
         let entry = entry.unwrap_or_else(|err| {
             eprintln!("ERROR: Failed to parse directory entry, {err}");
@@ -52,13 +59,16 @@ fn read_dir(dir_entry: ReadDir, files: &mut Vec<File>) {
                 println!("Skipping path: {:?}", path);
                 return;
             }
-            let content = fs::read_to_string(&path).unwrap_or_else(|err| {
-                eprintln!(
-                    "ERROR: Failed to read file with path: {:?}, err: {:?}",
-                    path, err
-                );
-                process::exit(1);
-            });
+            let content = fs::read_to_string(&path)
+                .unwrap_or_else(|err| {
+                    eprintln!(
+                        "ERROR: Failed to read file with path: {:?}, err: {:?}",
+                        path, err
+                    );
+                    process::exit(1);
+                })
+                .chars()
+                .collect::<Vec<_>>();
             println!("{:?}", &path);
             let now = SystemTime::now();
             let accessed = metadata.accessed().unwrap_or_else(|err| {
@@ -66,19 +76,12 @@ fn read_dir(dir_entry: ReadDir, files: &mut Vec<File>) {
                 process::exit(1);
             });
             let last_accessed = now.duration_since(accessed).unwrap().as_secs() / 3600;
-            println!("Last accessed {:?} hours ago", last_accessed);
-            let tokens = Tokenizer::new(&(content.chars().collect::<Vec<_>>())).collect::<Vec<_>>();
-            let mut parser = Parser::new(&tokens);
-            parser.parse();
-            files.push(File::new(
-                path.into_os_string().into_string().unwrap().as_str(),
-                parser.class,
-                match tokens.last() {
-                    Some(token) => token.line,
-                    None => 0,
-                },
-                last_accessed as usize,
-            ));
+            let file = RawFile {
+                path: path.into_os_string().into_string().unwrap(),
+                content,
+                last_accessed: last_accessed as usize,
+            };
+            files.push(file);
         }
         if metadata.is_dir() {
             let path = entry.path();
@@ -118,8 +121,23 @@ fn main() {
     });
 
     let mut files: Vec<File> = Vec::new();
+    let mut raw_files: Vec<RawFile> = Vec::new();
 
-    read_dir(dir_entry, &mut files);
+    read_dir(dir_entry, &mut raw_files);
+
+    raw_files.iter().for_each(|file| {
+        let tokens = Tokenizer::new(&file.content).collect::<Vec<_>>();
+        let parser = Parser::new(&tokens);
+        files.push(File::new(
+            file.path.as_str(),
+            parser.class,
+            match tokens.last() {
+                Some(token) => token.line,
+                None => 0,
+            },
+            file.last_accessed,
+        ));
+    });
     println!("Finished scanning.");
 
     files.sort_by(|a, b| {
