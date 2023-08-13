@@ -124,6 +124,7 @@ pub struct Parser<'a> {
     pub stmts: Vec<Stmt>,
     brackets: Vec<TokenType>,
     pub class: Class,
+    pub classes: Vec<Class>,
 }
 
 impl<'a> Parser<'a> {
@@ -133,6 +134,7 @@ impl<'a> Parser<'a> {
             stmts: Vec::new(),
             brackets: Vec::new(),
             class: Class::new(),
+            classes: Vec::new(),
         }
     }
 
@@ -255,10 +257,8 @@ impl<'a> Parser<'a> {
                         // Bit of a hack to get past things like Foo::class which was messing
                         // things up
                         if self.peek().is_some_and(|t| {
-                            vec![
-                                TokenType::ColonColon,
-                                TokenType::ThinArrow,
-                            ].contains(&t.token_type)
+                            vec![TokenType::ColonColon, TokenType::ThinArrow]
+                                .contains(&t.token_type)
                         }) {
                             self.advance();
                             self.advance();
@@ -275,13 +275,11 @@ impl<'a> Parser<'a> {
     fn parse_stmt(&mut self) -> Option<Stmt> {
         let token = self.next_token();
         if token.token_type != TokenType::Identifier {
-            return None;
-        }
-        if vec![
-            TokenType::ColonColon,
-            TokenType::ThinArrow,
-        ].contains(&token.token_type) {
-            self.advance();
+            if vec![TokenType::ColonColon, TokenType::ThinArrow].contains(&token.token_type) {
+                self.advance();
+                self.advance();
+                self.advance();
+            }
             return None;
         }
         let keyword = match match_keyword(token.lexeme.as_str()) {

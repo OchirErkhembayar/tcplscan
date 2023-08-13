@@ -32,7 +32,7 @@ impl File {
     }
 }
 
-fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) {
+fn read_dir(dir_entry: ReadDir, files: &mut Vec<File>) {
     dir_entry.for_each(|entry| {
         let entry = entry.unwrap_or_else(|err| {
             eprintln!("ERROR: Failed to parse directory entry, {err}");
@@ -44,12 +44,11 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
         });
         if metadata.is_file() {
             let path = entry.path();
-            if extension.is_some_and(|to_skip| {
-                !path
-                    .as_path()
-                    .extension()
-                    .is_some_and(|extension| extension == to_skip)
-            }) {
+            if path
+                .as_path()
+                .extension()
+                .is_some_and(|extension| extension != "php")
+            {
                 println!("Skipping path: {:?}", path);
                 return;
             }
@@ -87,7 +86,7 @@ fn read_dir(dir_entry: ReadDir, extension: Option<&str>, files: &mut Vec<File>) 
                 eprintln!("ERROR: Failed to read directory, {err}");
                 process::exit(1);
             });
-            read_dir(dir_entry, extension, files);
+            read_dir(dir_entry, files);
         }
     });
 }
@@ -102,18 +101,7 @@ fn main() {
         process::exit(1);
     });
 
-    let extension = match args.get(2) {
-        Some(ext) => {
-            println!("Running on {} files", ext);
-            Some(ext.as_str())
-        }
-        None => {
-            println!("Running without file extension filter");
-            None
-        }
-    };
-
-    let top_files: usize = match args.get(3) {
+    let top_files: usize = match args.get(2) {
         Some(num) => {
             println!("Getting top {num} files");
             num.parse().unwrap_or_else(|err| {
@@ -131,10 +119,14 @@ fn main() {
 
     let mut files: Vec<File> = Vec::new();
 
-    read_dir(dir_entry, extension, &mut files);
+    read_dir(dir_entry, &mut files);
     println!("Finished scanning.");
 
-    files.sort_by(|a, b| b.class.average_complexity().total_cmp(&a.class.average_complexity()));
+    files.sort_by(|a, b| {
+        b.class
+            .average_complexity()
+            .total_cmp(&a.class.average_complexity())
+    });
 
     println!();
     println!("Top files");
@@ -145,8 +137,14 @@ fn main() {
         println!("Last accessed {} hours ago", file.last_accessed);
         println!("Path: {}", file.path);
         println!("Lines: {}", file.lines);
-        println!("Average cyclomatic complexity: {}", class.average_complexity());
-        println!("Max cyclomatic complexity: {}", class.highest_complexity_function());
+        println!(
+            "Average cyclomatic complexity: {}",
+            class.average_complexity()
+        );
+        println!(
+            "Max cyclomatic complexity: {}",
+            class.highest_complexity_function()
+        );
         println!("Functions: {}", class.functions.len());
         for function in class.functions.iter() {
             println!("* -------- *");
