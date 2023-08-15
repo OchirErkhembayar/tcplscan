@@ -314,9 +314,21 @@ impl Parser {
         class.name = name;
         if self.next_matches_keywords(&[Keyword::Extends]) {
             self.next_token();
-            let mut name = self.namespace.to_owned();
-            name.push('\\');
-            name.push_str(self.next_token().lexeme.as_str());
+            let return_token = self.next_token();
+            let mut name = String::new();
+            // TODO compress this and the function return type out into function
+            if self.uses.is_empty() {
+                name.push_str(self.namespace.as_str());
+                name.push('\\');
+                name.push_str(return_token.lexeme.as_str());
+            } else {
+                for use_stmt in self.uses.iter() {
+                    if return_token.lexeme.as_str() == use_stmt.split('\\').last().expect("Empty use statement") {
+                        name.push_str(use_stmt.as_str());
+                        break;
+                    }
+                }
+            }
             class.extends = Some(name);
         }
         self.next_token();
