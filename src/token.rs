@@ -1,6 +1,8 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
+use crate::{parser::Visibility, tokenizer::Token};
+
 lazy_static! {
     static ref KEYWORDS: HashMap<&'static str, Keyword> = {
         let mut map = HashMap::new();
@@ -17,12 +19,33 @@ lazy_static! {
         map.insert("function", Keyword::Function);
         map.insert("throw", Keyword::Throw);
         map.insert("catch", Keyword::Catch);
+        map.insert("extends", Keyword::Extends);
+        map.insert("abstract", Keyword::Abstract);
+        map.insert("use", Keyword::Use);
+        map.insert("as", Keyword::As);
+        map.insert("public", Keyword::Visibility(Visibility::Public));
+        map.insert("private", Keyword::Visibility(Visibility::Private));
+        map.insert("protected", Keyword::Visibility(Visibility::Protected));
+        map.insert("const", Keyword::Const);
+        map.insert("static", Keyword::Static);
+        map.insert("iterable", Keyword::Iterable);
+        map.insert("string", Keyword::String);
+        map.insert("array", Keyword::Array);
+        map.insert("int", Keyword::Int);
+        map.insert("float", Keyword::Float);
+        map.insert("true", Keyword::Bool(Bool::True));
+        map.insert("false", Keyword::Bool(Bool::False));
+        map.insert("self", Keyword::MySelf);
+        map.insert("void", Keyword::Void);
         map
     };
 }
 
-pub fn match_keyword(keyword: &str) -> Option<Keyword> {
-    KEYWORDS.get(keyword).copied()
+pub fn match_keyword(token: &Token) -> Option<Keyword> {
+    if token.token_type != TokenType::Identifier {
+        return None;
+    }
+    KEYWORDS.get(token.lexeme.as_str()).copied()
 }
 
 #[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]
@@ -40,6 +63,27 @@ pub enum Keyword {
     Function,
     Throw,
     Catch,
+    Extends,
+    Abstract,
+    Use,
+    As,
+    Visibility(Visibility),
+    Const,
+    Static,
+    Iterable,
+    String,
+    Array,
+    Int,
+    Float,
+    Bool(Bool),
+    MySelf,
+    Void,
+}
+
+#[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]
+pub enum Bool {
+    True,
+    False,
 }
 
 #[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]
@@ -63,7 +107,7 @@ pub enum TokenType {
     Question,
     Colon,
     Pipe,
-    BitwiseAnd,
+    // BitwiseAnd,
     Hash,
     Reference,
     Modulo,
@@ -80,7 +124,7 @@ pub enum TokenType {
     GreaterEqual,
     Less,
     LessEqual,
-    BackSlash,
+    // BackSlash,
     OrOperator,
     AndOperator,
     HereDoc,
@@ -91,82 +135,84 @@ pub enum TokenType {
     // Literals
     Identifier,
     String,
-    Integer,
+    // Integer,
     Number, // Because I don't care about int/float for calculating complexity. Hope I don't regret
 
-    // Keywords
-    And,
-    Or,
-    Xor,
-    Class,
-    This,
-    Else, // Care
-    False,
-    Function, // Care
-    For,      // Care
-    Foreach,  // Care
-    If,       // Care
-    Elseif,   // Care
-    While,    // Care
-    Match,    // Care
-    Switch,   // Care
-    Case,     // Care
-    Break,
-    Try,     // Care
-    Catch,   // Care
-    Finally, // Care
-    Const,
-    Return,
-    Throw, // Care
-    New,
-    Clone,
-    EndSwitch,
-    Final,
-    Include,
-    Readonly,
-    Use,
-    Yield,
-    YieldFrom, // Ugh
-    Abstract,
-    Callable,
-    Do, // Care
-    Declare,
-    EndDeclare,
-    EndWhile,
-    Global,
-    IncludeOnce,
-    Continue,
-    Echo,
-    EndFor,
-    Fn,
-    Goto,
-    InstanceOf,
-    Private,
-    Trait,
-    EndForeach,
-    InsteadOf,
-    Protected,
-    As,
-    Default,
-    Extends,
-    Implements,
-    Interface,
-    Static,
-    StrictTypes,
-    Namespace,
+            /*
+            // Keywords
+            And,
+            Or,
+            Xor,
+            Class,
+            This,
+            Else, // Care
+            False,
+            Function, // Care
+            For,      // Care
+            Foreach,  // Care
+            If,       // Care
+            Elseif,   // Care
+            While,    // Care
+            Match,    // Care
+            Switch,   // Care
+            Case,     // Care
+            Break,
+            Try,     // Care
+            Catch,   // Care
+            Finally, // Care
+            Const,
+            Return,
+            Throw, // Care
+            New,
+            Clone,
+            EndSwitch,
+            Final,
+            Include,
+            Readonly,
+            Use,
+            Yield,
+            YieldFrom, // Ugh
+            Abstract,
+            Callable,
+            Do, // Care
+            Declare,
+            EndDeclare,
+            EndWhile,
+            Global,
+            IncludeOnce,
+            Continue,
+            Echo,
+            EndFor,
+            Fn,
+            Goto,
+            InstanceOf,
+            Private,
+            Trait,
+            EndForeach,
+            InsteadOf,
+            Protected,
+            As,
+            Default,
+            Extends,
+            Implements,
+            Interface,
+            Static,
+            StrictTypes,
+            Namespace,
 
-    // Function keywords
-    Die,
-    Empty,
-    Isset,
-    List,
-    Print,
-    Eval,
-    Array,
-    Exit,
-    Unset,
-    Require,
-    RequireOnce,
+            // Function keywords
+            Die,
+            Empty,
+            Isset,
+            List,
+            Print,
+            Eval,
+            Array,
+            Exit,
+            Unset,
+            Require,
+            RequireOnce,
 
-    Eof,
+            Eof,
+            */
 }

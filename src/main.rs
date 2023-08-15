@@ -1,6 +1,7 @@
 use crate::parser::Parser;
 use parser::Class;
 use std::{
+    collections::VecDeque,
     env,
     fs::{self, ReadDir},
     process,
@@ -38,6 +39,16 @@ impl File {
         }
     }
 }
+
+// 1st
+// Option<Public/Private/Protected>
+// Option<readonly>
+// Option<static>
+// eg
+// private readonly
+// public static
+// readonly
+// static
 
 fn read_dir(dir_entry: ReadDir, files: &mut Vec<RawFile>) {
     dir_entry.for_each(|entry| {
@@ -125,18 +136,16 @@ fn main() {
 
     read_dir(dir_entry, &mut raw_files);
 
+    let mut parser = Parser::new();
     raw_files.iter().for_each(|file| {
-        let tokens = Tokenizer::new(&file.content).collect::<Vec<_>>();
-        let parser = Parser::new(&tokens);
-        files.push(File::new(
-            file.path.as_str(),
-            parser.class,
-            match tokens.last() {
-                Some(token) => token.line,
-                None => 0,
-            },
-            file.last_accessed,
-        ));
+        let tokens = Tokenizer::new(&file.content).collect::<VecDeque<_>>();
+        let line = match tokens.back() {
+            Some(token) => token.line,
+            None => 0,
+        };
+        let class = parser.parse_file(tokens);
+        let file = File::new(file.path.as_str(), class, line, file.last_accessed);
+        files.push(file);
     });
     println!("Finished scanning.");
 
@@ -151,10 +160,19 @@ fn main() {
     println!("* ---------- *");
     for (i, file) in files.iter().take(top_files).enumerate() {
         let class = &file.class;
-        println!("{i}. {}", class.name);
+        println!("{}. {}", i + 1, class.name);
         println!("Last accessed {} hours ago", file.last_accessed);
         println!("Path: {}", file.path);
         println!("Lines: {}", file.lines);
+        if class.dependencies.is_empty() {
+            println!("No dependencies");
+        } else {
+            println!("Dependencies:");
+            println!("* ------ *");
+            for dependency in &class.dependencies {
+                println!("Dependency: {dependency}");
+            }
+        }
         println!(
             "Average cyclomatic complexity: {}",
             class.average_complexity()
@@ -164,9 +182,16 @@ fn main() {
             class.highest_complexity_function()
         );
         println!("Functions: {}", class.functions.len());
+        let extends = match class.extends.to_owned() {
+            Some(extends) => extends,
+            None => "None".to_string(),
+        };
+        println!("Extends: {}", extends);
+        println!("Abstract: {}", class.is_abstract);
         for function in class.functions.iter() {
             println!("* -------- *");
             println!("  Name: {}", function.name);
+            println!("  Visibility: {}", function.visibility);
             let return_type = if function.name == "__construct" {
                 "self".to_string()
             } else {

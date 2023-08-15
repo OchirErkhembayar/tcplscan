@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Foo\Baz;
 
+use Baz\Bar as Alias;
+use Foob\NotAlias;
+
 class Bar 
 {
     public function __construct(
@@ -13,6 +16,7 @@ class Bar
 
     public function baz(): void
     {
+        $lol = true;
         if ($lol) {
             echo "foo!";
         } elseif (1) {

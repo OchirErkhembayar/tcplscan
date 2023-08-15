@@ -1,7 +1,11 @@
-use std::process;
+use std::{
+    collections::VecDeque,
+    fmt::{self, Display, Formatter},
+    process,
+};
 
 use crate::{
-    token::{match_keyword, Keyword, TokenType},
+    token::{match_keyword, Bool, Keyword, TokenType},
     tokenizer::Token,
 };
 
@@ -45,12 +49,13 @@ pub enum StmtType {
     Match { case_count: usize },
 }
 
-impl StmtType {}
-
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Class {
     pub name: String,
     pub functions: Vec<Function>,
+    pub extends: Option<String>,
+    pub is_abstract: bool,
+    pub dependencies: Vec<String>,
 }
 
 impl Class {
@@ -58,11 +63,10 @@ impl Class {
         Self {
             name: String::new(),
             functions: Vec::new(),
+            extends: None,
+            is_abstract: false,
+            dependencies: Vec::new(),
         }
-    }
-
-    fn push_str(&mut self, name: &str) {
-        self.name.push_str(name);
     }
 
     fn add_fn(&mut self, function: Function) {
@@ -70,7 +74,7 @@ impl Class {
     }
 
     pub fn highest_complexity_function(&self) -> usize {
-        if self.functions.len() == 0 {
+        if self.functions.is_empty() {
             return 0;
         }
         let mut max = 0;
@@ -81,7 +85,7 @@ impl Class {
     }
 
     pub fn average_complexity(&self) -> f64 {
-        if self.functions.len() == 0 {
+        if self.functions.is_empty() {
             return 0.0;
         }
         let mut sum = 0.0;
@@ -92,21 +96,53 @@ impl Class {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
+pub enum Visibility {
+    Public,
+    Private,
+    Protected,
+}
+
+impl Display for Visibility {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Public => "public",
+                Self::Private => "private",
+                Self::Protected => "protected",
+            }
+        )
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Function {
     pub stmts: Vec<Stmt>,
     pub name: String,
     pub params: usize,
     pub return_type: Option<String>,
+    pub visibility: Visibility,
+    pub is_abstract: bool,
 }
 
 impl Function {
-    fn new(name: String, stmts: Vec<Stmt>, params: usize, return_type: Option<String>) -> Self {
+    fn new(
+        name: String,
+        stmts: Vec<Stmt>,
+        params: usize,
+        return_type: Option<String>,
+        visibility: Visibility,
+        is_abstract: bool,
+    ) -> Self {
         Self {
             name,
             stmts,
             params,
             return_type,
+            visibility,
+            is_abstract,
         }
     }
 
@@ -119,29 +155,27 @@ impl Function {
     }
 }
 
-pub struct Parser<'a> {
-    tokens: &'a [Token],
-    pub stmts: Vec<Stmt>,
-    brackets: Vec<TokenType>,
-    pub class: Class,
+pub struct Parser {
+    tokens: VecDeque<Token>,
+    brackets: VecDeque<TokenType>,
     pub classes: Vec<Class>,
+    namespace: String,
+    uses: Vec<String>,
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a [Token]) -> Self {
-        let mut parser = Self {
-            tokens,
-            stmts: Vec::new(),
-            brackets: Vec::new(),
-            class: Class::new(),
+impl Parser {
+    pub fn new() -> Self {
+        Self {
+            tokens: VecDeque::new(),
+            brackets: VecDeque::new(),
             classes: Vec::new(),
-        };
-        parser.parse();
-        parser
+            namespace: String::new(),
+            uses: Vec::new(),
+        }
     }
 
     fn closing_bracket(&mut self, token_type: TokenType) {
-        let top = self.brackets.pop().unwrap_or_else(|| {
+        let top = self.brackets.pop_back().unwrap_or_else(|| {
             eprintln!("Unmatched opening bracket: {:?}", token_type);
             process::exit(1);
         });
@@ -164,127 +198,235 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn advance(&mut self) {
-        if let Some(token) = self.tokens.get(0) {
-            match token.token_type {
-                TokenType::LeftParen => self.brackets.push(TokenType::LeftParen),
-                TokenType::LeftBrace => self.brackets.push(TokenType::LeftBrace),
-                TokenType::RightParen => self.closing_bracket(TokenType::RightParen),
-                TokenType::RightBrace => self.closing_bracket(TokenType::RightBrace),
-                _ => (),
-            }
-            self.tokens = &self.tokens[1..];
-        } else {
-            panic!("Fix this bug with advancing in parser");
+    fn next_token_opt(&mut self) -> Option<Token> {
+        let token = self.tokens.pop_front()?;
+        match token.token_type {
+            TokenType::LeftParen => self.brackets.push_back(TokenType::LeftParen),
+            TokenType::LeftBrace => self.brackets.push_back(TokenType::LeftBrace),
+            TokenType::RightParen => self.closing_bracket(TokenType::RightParen),
+            TokenType::RightBrace => self.closing_bracket(TokenType::RightBrace),
+            _ => (),
         }
-    }
-
-    fn next_token_opt(&mut self) -> Option<&Token> {
-        let token = match self.tokens.get(0) {
-            Some(token) => token,
-            None => return None,
-        };
-        self.advance();
         Some(token)
     }
 
-    fn next_token(&mut self) -> &Token {
+    fn next_token(&mut self) -> Token {
         self.next_token_opt().unwrap_or_else(|| {
             eprintln!("Expected token. Found none.");
             process::exit(1);
         })
     }
 
+    fn next_matches_token_types(&self, token_types: &[TokenType]) -> bool {
+        self.tokens
+            .front()
+            .is_some_and(|t| token_types.contains(&t.token_type))
+    }
+
+    fn next_matches_keywords(&self, keywords: &[Keyword]) -> bool {
+        self.tokens
+            .front()
+            .is_some_and(|t| match_keyword(t).is_some_and(|kw| keywords.contains(&kw)))
+    }
+
     fn peek(&self) -> Option<&Token> {
-        self.tokens.get(0)
+        self.tokens.front()
     }
 }
 
-impl<'a> Parser<'a> {
-    pub fn parse(&mut self) {
+impl Parser {
+    pub fn parse_file(&mut self, tokens: VecDeque<Token>) -> Class {
+        let mut class = Class::new();
+        self.tokens = tokens;
+        self.brackets.clear();
+        self.uses.clear();
         while let Some(token) = self.next_token_opt() {
-            let stmt = match token.token_type {
+            match token.token_type {
                 TokenType::Identifier => {
-                    if let Some(token_type) = match_keyword(token.lexeme.as_str()) {
+                    if let Some(token_type) = match_keyword(&token) {
                         match token_type {
                             Keyword::Namespace => {
                                 println!("Namespace: {:?}", self.peek());
-                                let namespace = self.next_token().lexeme.clone();
-                                self.class.push_str(namespace.as_str());
+                                self.namespace = self.next_token().lexeme;
                                 continue;
+                            }
+                            Keyword::Use => {
+                                let name = self.next_token().lexeme;
+                                if self.next_matches_keywords(&[Keyword::As]) {
+                                    self.next_token();
+                                    let alias = self.next_token().lexeme;
+                                    let mut split: Vec<_> = name.split('\\').collect();
+                                    split.pop();
+                                    split.push(alias.as_str());
+                                    self.uses.push(split.join("\\"));
+                                }
+                                self.uses.push(name);
+                                continue;
+                            }
+                            Keyword::Abstract => {
+                                class.is_abstract = true;
+                                self.next_token();
+                                return self.class(true);
                             }
                             Keyword::Class => {
-                                println!("Class: {:?}", self.peek());
-                                let name = self.next_token().lexeme.clone();
-                                self.class.push_str("\\");
-                                self.class.push_str(name.as_str());
-                                continue;
-                            }
-                            Keyword::Function => {
-                                let name = self.next_token().lexeme.clone();
-                                let mut params = 0;
-                                while self
-                                    .peek()
-                                    .is_some_and(|t| t.token_type != TokenType::RightParen)
-                                {
-                                    if self.next_token().lexeme.starts_with('$') {
-                                        params += 1;
-                                    }
-                                }
-                                self.advance();
-                                let return_type = if self
-                                    .peek()
-                                    .is_some_and(|t| t.token_type == TokenType::Colon)
-                                {
-                                    self.advance();
-                                    Some(self.next_token().lexeme.clone())
-                                } else {
-                                    None
-                                };
-                                let depth = self.brackets.len();
-                                self.advance();
-                                let mut stmts = Vec::new();
-                                while depth != self.brackets.len() {
-                                    if let Some(stmt) = self.parse_stmt() {
-                                        stmts.push(stmt);
-                                    }
-                                }
-                                self.class
-                                    .add_fn(Function::new(name, stmts, params, return_type));
-                                continue;
+                                // Todo
+                                // 1. class name
+                                // 2. properties
+                                //    - private/public/protected/ NOT GIVEN (public)
+                                //    - readonly?
+                                //    - static?
+                                //    - type
+                                //    - name
+                                //    ; semicolon
+                                // 3. constructor -> potentially more promoted properties
+                                // 4. Methods
+                                return self.class(false);
                             }
                             _ => Stmt::new(StmtType::For, token.line),
                         }
                     } else {
-                        // Bit of a hack to get past things like Foo::class which was messing
+                        // Bit of a hack to get past things like Foo::class or $this->match() which was messing
                         // things up
-                        if self.peek().is_some_and(|t| {
-                            vec![TokenType::ColonColon, TokenType::ThinArrow]
-                                .contains(&t.token_type)
-                        }) {
-                            self.advance();
-                            self.advance();
+                        if self.next_matches_token_types(&[
+                            TokenType::ColonColon,
+                            TokenType::ThinArrow,
+                        ]) {
+                            self.next_token();
+                            self.next_token();
                         }
                         continue;
                     }
                 }
                 _ => continue,
             };
-            self.stmts.push(stmt);
         }
+        class
+    }
+
+    fn class(&mut self, is_abstract: bool) -> Class {
+        let mut class = Class::new();
+        class.is_abstract = is_abstract;
+        let mut name = String::new();
+        name.push_str(self.namespace.as_str());
+        name.push('\\');
+        name.push_str(self.next_token().lexeme.as_str());
+        println!("Name: {name}");
+        class.name = name;
+        if self.next_matches_keywords(&[Keyword::Extends]) {
+            self.next_token();
+            let mut name = self.namespace.to_owned();
+            name.push('\\');
+            name.push_str(self.next_token().lexeme.as_str());
+            class.extends = Some(name);
+        }
+        self.next_token();
+        while !self.brackets.is_empty() {
+            let token = self.next_token();
+            if let Some(keyword) = match_keyword(&token) {
+                match keyword {
+                    Keyword::Function => {
+                        class.add_fn(self.function(Visibility::Public));
+                    }
+                    Keyword::Visibility(visibility) => {
+                        let token = self.next_token();
+                        let keyword = match_keyword(&token);
+                        match keyword {
+                            Some(Keyword::Function) => class.add_fn(self.function(visibility)),
+                            _ => continue,
+                        }
+                    }
+                    _ => continue,
+                }
+            }
+        }
+        class
+    }
+
+    fn function(&mut self, visibility: Visibility) -> Function {
+        let name = self.next_token().lexeme;
+        let mut params = 0;
+        while !self.next_matches_token_types(&[TokenType::RightParen]) {
+            // private readonly string $var
+            // visibility, readonly?, type, $name
+            // all optional except name
+            if self.next_token().lexeme.starts_with('$') {
+                params += 1;
+            }
+        }
+        self.next_token();
+        let return_type = if self.next_matches_token_types(&[TokenType::Colon]) {
+            self.next_token();
+            let mut return_token = self.next_token();
+            // TODO handle this
+            if return_token.token_type == TokenType::Question {
+                return_token = self.next_token();
+            }
+            let mut return_type = String::new();
+            let built_in_types = vec![
+                Keyword::String,
+                Keyword::Int,
+                Keyword::Float,
+                Keyword::Array,
+                Keyword::Bool(Bool::True),
+                Keyword::Bool(Bool::False),
+                Keyword::Iterable,
+                Keyword::MySelf,
+                Keyword::Void,
+                Keyword::Static,
+            ];
+            if let Some(keyword) = match_keyword(&return_token) {
+                // Check if it's a built in data type
+                if built_in_types.contains(&keyword) {
+                    return_type = return_token.lexeme;
+                } else {
+                    panic!("Return type is an unexpected keyword: {:?}", return_type);
+                }
+            } else {
+                // Find which use statement corresponds to this or if it's a native data type
+                if self.uses.is_empty() {
+                    return_type.push_str(self.namespace.as_str());
+                    return_type.push('\\');
+                    return_type.push_str(return_token.lexeme.as_str());
+                } else {
+                    for use_stmt in self.uses.iter() {
+                        let ending = use_stmt.split('\\').last().expect("Empty use statement");
+                        if return_token.lexeme.as_str() == ending {
+                            return_type.push_str(use_stmt.as_str());
+                            break;
+                        }
+                    }
+                }
+            }
+            Some(return_type)
+        } else {
+            None
+        };
+        let depth = self.brackets.len();
+        let token = self.next_token();
+        if token.token_type == TokenType::Semicolon {
+            return Function::new(name, Vec::new(), params, return_type, visibility, true);
+        }
+        let mut stmts = Vec::new();
+        while depth != self.brackets.len() {
+            if let Some(stmt) = self.parse_stmt() {
+                stmts.push(stmt);
+            }
+        }
+        Function::new(name, stmts, params, return_type, visibility, false)
     }
 
     fn parse_stmt(&mut self) -> Option<Stmt> {
         let token = self.next_token();
         if token.token_type != TokenType::Identifier {
+            // hack to get over things like $this->match()
             if vec![TokenType::ColonColon, TokenType::ThinArrow].contains(&token.token_type) {
-                self.advance();
-                self.advance();
-                self.advance();
+                self.next_token();
+                self.next_token();
+                self.next_token();
             }
             return None;
         }
-        let keyword = match match_keyword(token.lexeme.as_str()) {
+        let keyword = match match_keyword(&token) {
             Some(keyword) => keyword,
             None => return None,
         };
@@ -318,7 +460,7 @@ impl<'a> Parser<'a> {
 
             match token.token_type {
                 TokenType::Identifier => {
-                    let keyword = match match_keyword(token.lexeme.as_str()) {
+                    let keyword = match match_keyword(&token) {
                         Some(keyword) => keyword,
                         None => continue,
                     };
@@ -355,11 +497,9 @@ impl<'a> Parser<'a> {
                 eprintln!("Unterminated match statement");
                 process::exit(1);
             });
-            println!("Token inside match: {:?}", token);
 
             match token.token_type {
                 TokenType::FatArrow => case_count += 1,
-                TokenType::Default => break,
                 TokenType::RightBrace => {
                     if self.brackets.len() == depth {
                         break;
