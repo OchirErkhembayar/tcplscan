@@ -315,19 +315,28 @@ impl Parser {
         if self.next_matches_keywords(&[Keyword::Extends]) {
             self.next_token();
             let return_token = self.next_token();
+            println!("Return token: {:?}", return_token);
             let mut name = String::new();
             // TODO compress this and the function return type out into function
             if self.uses.is_empty() {
+                println!("Namespace: {:?}", self.namespace);
                 name.push_str(self.namespace.as_str());
                 name.push('\\');
                 name.push_str(return_token.lexeme.as_str());
+                println!("Name: {name}");
             } else {
+                // Todo handle types in global namespace like \InvalidArgumentException
                 for use_stmt in self.uses.iter() {
-                    if return_token.lexeme.as_str() == use_stmt.split('\\').last().expect("Empty use statement") {
+                    if return_token.lexeme.as_str()
+                        == use_stmt.split('\\').last().expect("Empty use statement")
+                    {
                         name.push_str(use_stmt.as_str());
                         break;
                     }
                 }
+                name.push_str(self.namespace.as_str());
+                name.push('\\');
+                name.push_str(return_token.lexeme.as_str());
             }
             class.extends = Some(name);
         }
