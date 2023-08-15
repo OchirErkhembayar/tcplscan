@@ -31,6 +31,11 @@ class Bar
 
     function noReturn() {}
 
+    function returnMe(): ReturnMe
+    {
+        return new ReturnMe();
+    }
+
     /**
      * @return string
      * @throws \RuntimeException

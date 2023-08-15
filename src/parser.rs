@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    token::{match_keyword, Bool, Keyword, TokenType},
+    token::{match_keyword, Keyword, TokenType},
     tokenizer::Token,
 };
 
@@ -326,17 +326,7 @@ impl Parser {
                 println!("Name: {name}");
             } else {
                 // Todo handle types in global namespace like \InvalidArgumentException
-                for use_stmt in self.uses.iter() {
-                    if return_token.lexeme.as_str()
-                        == use_stmt.split('\\').last().expect("Empty use statement")
-                    {
-                        name.push_str(use_stmt.as_str());
-                        break;
-                    }
-                }
-                name.push_str(self.namespace.as_str());
-                name.push('\\');
-                name.push_str(return_token.lexeme.as_str());
+                name = self.find_type(&return_token);
             }
             class.extends = Some(name);
         }
@@ -382,19 +372,18 @@ impl Parser {
             if return_token.token_type == TokenType::Question {
                 return_token = self.next_token();
             }
-            let mut return_type = String::new();
             let built_in_types = vec![
                 Keyword::String,
                 Keyword::Int,
                 Keyword::Float,
                 Keyword::Array,
-                Keyword::Bool(Bool::True),
-                Keyword::Bool(Bool::False),
+                Keyword::Bool,
                 Keyword::Iterable,
                 Keyword::MySelf,
                 Keyword::Void,
                 Keyword::Static,
             ];
+            let mut return_type = String::new();
             if let Some(keyword) = match_keyword(&return_token) {
                 // Check if it's a built in data type
                 if built_in_types.contains(&keyword) {
@@ -404,19 +393,7 @@ impl Parser {
                 }
             } else {
                 // Find which use statement corresponds to this or if it's a native data type
-                if self.uses.is_empty() {
-                    return_type.push_str(self.namespace.as_str());
-                    return_type.push('\\');
-                    return_type.push_str(return_token.lexeme.as_str());
-                } else {
-                    for use_stmt in self.uses.iter() {
-                        let ending = use_stmt.split('\\').last().expect("Empty use statement");
-                        if return_token.lexeme.as_str() == ending {
-                            return_type.push_str(use_stmt.as_str());
-                            break;
-                        }
-                    }
-                }
+                return_type = self.find_type(&return_token);
             }
             Some(return_type)
         } else {
@@ -434,6 +411,23 @@ impl Parser {
             }
         }
         Function::new(name, stmts, params, return_type, visibility, false)
+    }
+
+    fn find_type(&mut self, return_token: &Token) -> String {
+        let mut return_type = String::new();
+        for use_stmt in self.uses.iter() {
+            let ending = use_stmt.split('\\').last().expect("Empty use statement");
+            if return_token.lexeme.as_str() == ending {
+                return_type.push_str(use_stmt.as_str());
+                break;
+            }
+        }
+        if return_type.is_empty() {
+            return_type.push_str(self.namespace.as_str());
+            return_type.push('\\');
+            return_type.push_str(return_token.lexeme.as_str());
+        }
+        return_type
     }
 
     fn parse_stmt(&mut self) -> Option<Stmt> {

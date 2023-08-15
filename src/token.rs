@@ -33,8 +33,7 @@ lazy_static! {
         map.insert("array", Keyword::Array);
         map.insert("int", Keyword::Int);
         map.insert("float", Keyword::Float);
-        map.insert("true", Keyword::Bool(Bool::True));
-        map.insert("false", Keyword::Bool(Bool::False));
+        map.insert("bool", Keyword::Bool);
         map.insert("self", Keyword::MySelf);
         map.insert("void", Keyword::Void);
         map
@@ -75,15 +74,9 @@ pub enum Keyword {
     Array,
     Int,
     Float,
-    Bool(Bool),
+    Bool,
     MySelf,
     Void,
-}
-
-#[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]
-pub enum Bool {
-    True,
-    False,
 }
 
 #[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]
