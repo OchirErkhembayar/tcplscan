@@ -476,6 +476,7 @@ impl Parser {
         let mut params = 0;
         while self.brackets.len() != depth {
             let token = self.next_token();
+            // Handle this properly pls
             if [TokenType::Comma, TokenType::RightParen, TokenType::Equal]
                 .contains(&token.token_type)
             {
@@ -492,7 +493,9 @@ impl Parser {
         let return_type = if self.next_matches_token_types(&[TokenType::Colon]) {
             self.next_token();
             let mut return_token = self.next_token();
-            // TODO handle this
+            // TODO handle this nullable thing
+            // Also need to handle unions and &, so all this 
+            // will need to be parsed using a custom grammar
             if return_token.token_type == TokenType::Question {
                 return_token = self.next_token();
             }
