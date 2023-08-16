@@ -358,8 +358,9 @@ impl Parser {
             let implements = self.next_token();
             class.implements = Some(self.find_type(&implements));
         }
+        let depth = self.brackets.len();
         self.next_token();
-        while !self.brackets.is_empty() {
+        while depth != self.brackets.len() {
             self.statement(&mut class);
         }
         for usage in self.uses.iter() {
@@ -494,7 +495,7 @@ impl Parser {
             self.next_token();
             let mut return_token = self.next_token();
             // TODO handle this nullable thing
-            // Also need to handle unions and &, so all this 
+            // Also need to handle unions and &, so all this
             // will need to be parsed using a custom grammar
             if return_token.token_type == TokenType::Question {
                 return_token = self.next_token();
