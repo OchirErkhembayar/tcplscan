@@ -145,7 +145,7 @@ fn main() {
         let file = File::new(file.path.as_str(), class, line, file.last_accessed);
         files.push(file);
     });
-    println!("Finished scanning.");
+    println!("Finished scanning {} files.", files.len());
 
     files.sort_by(|a, b| {
         b.class

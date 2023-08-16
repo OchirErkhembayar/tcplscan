@@ -71,7 +71,9 @@ impl Class {
 
     fn add_fn(&mut self, function: Function) {
         if let Some(return_type) = &function.return_type {
-            if return_type.chars().next().unwrap().is_uppercase() && !self.dependencies.contains(return_type) {
+            if return_type.chars().next().unwrap().is_uppercase()
+                && !self.dependencies.contains(return_type)
+            {
                 self.dependencies.push(return_type.to_owned());
             }
         }
