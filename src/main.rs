@@ -42,16 +42,6 @@ impl File {
     }
 }
 
-// 1st
-// Option<Public/Private/Protected>
-// Option<readonly>
-// Option<static>
-// eg
-// private readonly
-// public static
-// readonly
-// static
-
 fn read_dir(dir_entry: ReadDir, files: &mut Vec<RawFile>) {
     dir_entry.for_each(|entry| {
         let entry = entry.unwrap_or_else(|err| {

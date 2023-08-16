@@ -409,13 +409,12 @@ impl Parser {
         } else {
             Visibility::Public
         };
-        // const, readonly, static, function, type
         match keyword {
             // Handle this later
             Keyword::Const => self.synchronize(),
             Keyword::Readonly => {
                 let token = self.next_token();
-                // Must be a type
+                // Must be a type if it is readonly
                 if let Some(dependency) = self.parse_type(&token) {
                     class.add_dependency(dependency);
                 }
