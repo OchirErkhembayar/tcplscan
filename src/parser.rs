@@ -71,10 +71,8 @@ impl Class {
 
     fn add_fn(&mut self, function: Function) {
         if let Some(return_type) = &function.return_type {
-            if return_type.chars().nth(0).unwrap().is_uppercase() {
-                if !self.dependencies.contains(return_type) {
-                    self.dependencies.push(return_type.to_owned());
-                }
+            if return_type.chars().next().unwrap().is_uppercase() && !self.dependencies.contains(return_type) {
+                self.dependencies.push(return_type.to_owned());
             }
         }
 
@@ -353,7 +351,7 @@ impl Parser {
                 Keyword::Abstract => self.visibility(class),
                 Keyword::Visibility(visibility) => {
                     let token = self.next_token();
-                    if let Some(_) = match_keyword(&token) {
+                    if match_keyword(&token).is_some() {
                         self.match_keyword(class, visibility, token);
                     }
                 }
@@ -373,9 +371,8 @@ impl Parser {
             Keyword::Function => class.add_fn(self.function(visibility)),
             Keyword::Readonly => {
                 let token = self.next_token();
-                match self.dependency(token) {
-                    Some(dependency) => class.dependencies.push(dependency),
-                    None => return,
+                if let Some(dependency) = self.dependency(token) {
+                    class.dependencies.push(dependency);
                 }
             }
             Keyword::Static => {
