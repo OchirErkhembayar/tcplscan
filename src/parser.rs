@@ -66,6 +66,7 @@ pub struct Class {
     pub name: String,
     pub functions: Vec<Function>,
     pub extends: Option<String>,
+    pub implements: Option<String>,
     pub is_abstract: bool,
     pub dependencies: Vec<String>,
 }
@@ -76,6 +77,7 @@ impl Class {
             name: String::new(),
             functions: Vec::new(),
             extends: None,
+            implements: None,
             is_abstract: false,
             dependencies: Vec::new(),
         }
@@ -93,7 +95,7 @@ impl Class {
         if dependency.chars().next().unwrap().is_uppercase()
             && !self.dependencies.contains(&dependency)
         {
-            self.dependencies.push(dependency.to_owned());
+            self.dependencies.push(dependency);
         }
     }
 
@@ -354,7 +356,7 @@ impl Parser {
         if self.next_matches_keywords(&[Keyword::Implements]) {
             self.next_token();
             let implements = self.next_token();
-            class.extends = Some(self.find_type(&implements));
+            class.implements = Some(self.find_type(&implements));
         }
         self.next_token();
         while !self.brackets.is_empty() {

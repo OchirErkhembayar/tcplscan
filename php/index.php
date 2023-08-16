@@ -24,7 +24,7 @@ class Bar
         private readonly string $foobz,
     ) {}
 
-    private function switcheroo($i): void
+    private function switcheroo($i): NotAlias
     {
         echo match ($i) {
             1 => "Foo!",
@@ -69,6 +69,7 @@ class Bar
             la la la
         FOO;
         $var::class;
+        return new NotAlias();
     }
 }
 // Lol hi

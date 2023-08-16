@@ -3,6 +3,7 @@ use parser::Class;
 use std::{
     collections::{HashMap, VecDeque},
     env,
+    fmt::Display,
     fs::{self, ReadDir},
     process,
     time::SystemTime,
@@ -63,23 +64,24 @@ fn read_dir(dir_entry: ReadDir, files: &mut Vec<RawFile>) {
         });
         if metadata.is_file() {
             let path = entry.path();
-            if path
-                .as_path()
-                .extension()
-                .is_some_and(|extension| extension != "php")
-            {
-                return;
+            match path.as_path().extension() {
+                Some(extension) => {
+                    if extension != "php" {
+                        return;
+                    }
+                }
+                None => return,
             }
-            let content = fs::read_to_string(&path)
-                .unwrap_or_else(|err| {
+            let content = match fs::read_to_string(&path) {
+                Ok(content) => content.chars().collect::<Vec<_>>(),
+                Err(err) => {
                     eprintln!(
                         "ERROR: Failed to read file with path: {:?}, err: {:?}",
                         path, err
                     );
-                    process::exit(1);
-                })
-                .chars()
-                .collect::<Vec<_>>();
+                    return;
+                }
+            };
             let now = SystemTime::now();
             let accessed = metadata.accessed().unwrap_or_else(|err| {
                 eprintln!("ERROR: Failed to read accessed date, {err}");
@@ -106,6 +108,26 @@ fn read_dir(dir_entry: ReadDir, files: &mut Vec<RawFile>) {
 
 type ClassDependencyIndex = HashMap<String, usize>;
 
+enum SortType {
+    Complexity,
+    Uses,
+    Dependencies,
+}
+
+impl Display for SortType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SortType::Dependencies => "dependencies",
+                SortType::Uses => "uses",
+                SortType::Complexity => "complexity",
+            }
+        )
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -114,6 +136,7 @@ fn main() {
         process::exit(1);
     });
 
+    // handle these options properly
     let top_files: usize = match args.get(2) {
         Some(num) => {
             println!("Getting top {num} files");
@@ -123,6 +146,19 @@ fn main() {
             })
         }
         None => 3,
+    };
+
+    let sort_type = match args.get(3) {
+        Some(sort_type) => match sort_type.as_str() {
+            "c" => SortType::Complexity,
+            "u" => SortType::Uses,
+            "d" => SortType::Dependencies,
+            _ => {
+                eprintln!("ERROR: {sort_type} is not a valid sort type. Options are:\n\tc - Complexity\n\tu - Usage count\n\td - Dependency count");
+                process::exit(1);
+            }
+        },
+        None => SortType::Dependencies,
     };
 
     let dir_entry = fs::read_dir(path).unwrap_or_else(|err| {
@@ -137,7 +173,7 @@ fn main() {
     read_dir(dir_entry, &mut raw_files);
     let diff = now.elapsed().unwrap().as_millis() as f64;
     println!(
-        "Finished reading {} files in {:.4} seconds.",
+        "Filtered out and read {} files in {:.4} seconds.",
         raw_files.len(),
         diff / 1000.0
     );
@@ -163,19 +199,6 @@ fn main() {
     );
 
     let now = SystemTime::now();
-    files.sort_by(|a, b| {
-        b.class
-            .average_complexity()
-            .total_cmp(&a.class.average_complexity())
-    });
-    let diff = now.elapsed().unwrap().as_millis() as f64;
-    println!(
-        "Sorted {} files in {:.4} seconds.",
-        files.len(),
-        diff / 1000.0
-    );
-
-    let now = SystemTime::now();
     let mut index = ClassDependencyIndex::new();
     for file in files.iter() {
         let class = &file.class;
@@ -189,6 +212,17 @@ fn main() {
     }
     let diff = now.elapsed().unwrap().as_millis() as f64;
     println!("Indexed classes in {:.4} seconds", diff / 1000.0);
+
+    println!();
+    println!("Sorting by: {sort_type}");
+    let now = SystemTime::now();
+    let diff = now.elapsed().unwrap().as_millis() as f64;
+    sort_by(&mut files, sort_type, &index);
+    println!(
+        "Sorted {} files in {:.4} seconds.",
+        files.len(),
+        diff / 1000.0
+    );
 
     println!();
     println!("Top files");
@@ -222,7 +256,12 @@ fn main() {
             Some(extends) => extends,
             None => "None".to_string(),
         };
+        let implements = match class.implements.to_owned() {
+            Some(implements) => implements,
+            None => "None".to_string(),
+        };
         println!("Extends: {}", extends);
+        println!("Implements: {}", implements);
         println!("Abstract: {}", class.is_abstract);
         for function in class.functions.iter() {
             println!("* -------- *");
@@ -250,4 +289,22 @@ fn main() {
 fn error(msg: &str, line: usize) {
     eprintln!("ERR: line: {line} {msg}");
     process::exit(1);
+}
+
+fn sort_by(files: &mut [File], sort_type: SortType, index: &ClassDependencyIndex) {
+    match sort_type {
+        SortType::Complexity => {
+            files.sort_by(|a, b| {
+                b.class
+                    .average_complexity()
+                    .total_cmp(&a.class.average_complexity())
+            });
+        }
+        SortType::Uses => {
+            files.sort_by(|a, b| index.get(&b.class.name).cmp(&index.get(&a.class.name)));
+        }
+        SortType::Dependencies => {
+            files.sort_by(|a, b| b.class.dependencies.cmp(&a.class.dependencies));
+        }
+    }
 }
