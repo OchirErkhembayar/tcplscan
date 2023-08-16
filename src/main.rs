@@ -134,7 +134,7 @@ fn main() {
     read_dir(dir_entry, &mut raw_files);
     let diff = now.elapsed().unwrap().as_millis() as f64;
     println!(
-        "Finished reading {} files in {}.",
+        "Finished reading {} files in {:.4} seconds.",
         raw_files.len(),
         diff / 1000.0
     );
@@ -153,7 +153,7 @@ fn main() {
     });
     let diff = now.elapsed().unwrap().as_millis() as f64;
     println!(
-        "Finished scanning {} files in {} seconds.",
+        "Finished scanning and parsing {} files in {:.4} seconds.",
         files.len(),
         diff / 1000.0
     );
@@ -165,7 +165,11 @@ fn main() {
             .total_cmp(&a.class.average_complexity())
     });
     let diff = now.elapsed().unwrap().as_millis() as f64;
-    println!("Sorted {} files in {} seconds.", files.len(), diff / 1000.0);
+    println!(
+        "Sorted {} files in {:.4} seconds.",
+        files.len(),
+        diff / 1000.0
+    );
 
     println!();
     println!("Top files");
