@@ -1,6 +1,6 @@
 use git2::{Error, Repository};
 
-fn get_repository(_path: &str) -> Result<Repository, Error> {
+fn _get_repository(_path: &str) -> Result<Repository, Error> {
     Repository::open(".")
 }
 

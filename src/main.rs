@@ -160,6 +160,9 @@ fn main() {
     println!("* ---------- *");
     for (i, file) in files.iter().take(top_files).enumerate() {
         let class = &file.class;
+        if class.dependencies.is_empty() {
+            continue;
+        }
         println!("{}. {}", i + 1, class.name);
         println!("Last accessed {} hours ago", file.last_accessed);
         println!("Path: {}", file.path);
@@ -167,7 +170,7 @@ fn main() {
         if class.dependencies.is_empty() {
             println!("No dependencies");
         } else {
-            println!("Dependencies:");
+            println!("Dependencies");
             println!("* ------ *");
             for dependency in &class.dependencies {
                 println!("Dependency: {dependency}");

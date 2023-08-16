@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    token::{match_keyword, Keyword, TokenType},
+    token::{match_keyword, Keyword, TokenType, match_data_type},
     tokenizer::Token,
 };
 
@@ -70,6 +70,15 @@ impl Class {
     }
 
     fn add_fn(&mut self, function: Function) {
+        if let Some(return_type) = &function.return_type {
+            if return_type.chars().nth(0).unwrap().is_uppercase() {
+                if !self.dependencies.contains(return_type) {
+                    println!("Adding dependency: {return_type}");
+                    self.dependencies.push(return_type.to_owned());
+                }
+            }
+        }
+
         self.functions.push(function);
     }
 
@@ -89,10 +98,18 @@ impl Class {
             return 0.0;
         }
         let mut sum = 0.0;
-        for function in self.functions.iter() {
-            sum += function.complexity() as f64;
+        let mut len = 0.0;
+        self.functions
+            .iter()
+            .filter(|f| f.name != "__construct")
+            .for_each(|f| {
+                sum += f.complexity() as f64;
+                len += 1.0;
+            });
+        if len == 0.0 {
+            len += 1.0;
         }
-        sum / self.functions.len() as f64
+        sum / len
     }
 }
 
@@ -232,6 +249,13 @@ impl Parser {
     fn peek(&self) -> Option<&Token> {
         self.tokens.front()
     }
+
+    fn synchronize(&mut self) {
+        while self.peek().is_some_and(|t| t.token_type != TokenType::Semicolon) {
+            self.next_token();
+        }
+        self.next_token();
+    }
 }
 
 impl Parser {
@@ -282,7 +306,7 @@ impl Parser {
                                 // 4. Methods
                                 return self.class(false);
                             }
-                            _ => Stmt::new(StmtType::For, token.line),
+                            _ => continue,
                         }
                     } else {
                         // Bit of a hack to get past things like Foo::class or $this->match() which was messing
@@ -306,60 +330,106 @@ impl Parser {
     fn class(&mut self, is_abstract: bool) -> Class {
         let mut class = Class::new();
         class.is_abstract = is_abstract;
-        let mut name = String::new();
-        name.push_str(self.namespace.as_str());
-        name.push('\\');
-        name.push_str(self.next_token().lexeme.as_str());
-        println!("Name: {name}");
-        class.name = name;
+        class.name.push_str(self.namespace.as_str());
+        class.name.push('\\');
+        class.name.push_str(self.next_token().lexeme.as_str());
         if self.next_matches_keywords(&[Keyword::Extends]) {
             self.next_token();
-            let return_token = self.next_token();
-            println!("Return token: {:?}", return_token);
-            let mut name = String::new();
-            // TODO compress this and the function return type out into function
-            if self.uses.is_empty() {
-                println!("Namespace: {:?}", self.namespace);
-                name.push_str(self.namespace.as_str());
-                name.push('\\');
-                name.push_str(return_token.lexeme.as_str());
-                println!("Name: {name}");
-            } else {
-                // Todo handle types in global namespace like \InvalidArgumentException
-                name = self.find_type(&return_token);
-            }
-            class.extends = Some(name);
+            let extends = self.next_token();
+            class.extends = Some(self.find_type(extends));
         }
         self.next_token();
         while !self.brackets.is_empty() {
-            let token = self.next_token();
-            if let Some(keyword) = match_keyword(&token) {
-                match keyword {
-                    Keyword::Function => {
-                        class.add_fn(self.function(Visibility::Public));
-                    }
-                    Keyword::Visibility(visibility) => {
-                        let token = self.next_token();
-                        let keyword = match_keyword(&token);
-                        match keyword {
-                            Some(Keyword::Function) => class.add_fn(self.function(visibility)),
-                            _ => continue,
-                        }
-                    }
-                    _ => continue,
-                }
-            }
+            self.visibility(&mut class);
         }
         class
+    }
+    
+    fn visibility(&mut self, class: &mut Class) {
+        let token = self.next_token();
+        if let Some(keyword) = match_keyword(&token) {
+            match keyword {
+                Keyword::Abstract => self.visibility(class),
+                Keyword::Visibility(visibility) => {
+                    let token = self.next_token();
+                    if let Some(_) = match_keyword(&token) {
+                        self.match_keyword(class, visibility, token);
+                    }
+                }
+                Keyword::Use => (),
+                _ => self.match_keyword(class, Visibility::Public, token),
+            };
+        }
+    }
+
+    fn match_keyword(&mut self, class: &mut Class, visibility: Visibility, token: Token) {
+        let keyword = match match_keyword(&token) {
+            Some(keyword) => keyword,
+            None => return,
+        };
+        println!("Keyword: {:?}", keyword);
+        match keyword {
+            Keyword::Const => self.synchronize(),
+            Keyword::Function => class.add_fn(self.function(visibility)),
+            Keyword::Readonly => {
+                let token = self.next_token();
+                match self.dependency(token) {
+                    Some(dependency) => class.dependencies.push(dependency),
+                    None => self.synchronize(),
+                }
+            }
+            Keyword::Static => {
+                let token = self.next_token();
+                let keyword = match match_keyword(&token) {
+                    Some(keyword) => keyword,
+                    None => {
+                        // it's a type
+                        if match_data_type(&token).is_some() {
+                            // Ignore built in data types
+                            return;
+                        }
+                        if token.lexeme.starts_with('$') {
+                            // static $foo;
+                            return;
+                        }
+                        class.dependencies.push(self.find_type(token));
+                        return;
+                    },
+                };
+                println!("The keyword inside static: {:?}", keyword);
+                if keyword == Keyword::Function {
+                    class.add_fn(self.function(Visibility::Public));
+                    return;
+                }
+                // ignore built in data types, not a dependency
+                if match_data_type(&token).is_some() {
+                    self.synchronize();
+                }
+                class.dependencies.push(self.find_type(token));
+            }
+            _ => {
+                match self.dependency(token) {
+                    Some(dependency) => class.dependencies.push(dependency),
+                    None => self.synchronize(),
+                }
+            },
+        }
+    }
+
+    fn dependency(&mut self, token: Token) -> Option<String> {
+        if token.lexeme.starts_with('$') {
+            return None;
+        }
+        if match_data_type(&token).is_some() {
+            return None;
+        }
+        Some(self.find_type(token))
     }
 
     fn function(&mut self, visibility: Visibility) -> Function {
         let name = self.next_token().lexeme;
         let mut params = 0;
         while !self.next_matches_token_types(&[TokenType::RightParen]) {
-            // private readonly string $var
-            // visibility, readonly?, type, $name
-            // all optional except name
             if self.next_token().lexeme.starts_with('$') {
                 params += 1;
             }
@@ -372,30 +442,7 @@ impl Parser {
             if return_token.token_type == TokenType::Question {
                 return_token = self.next_token();
             }
-            let built_in_types = vec![
-                Keyword::String,
-                Keyword::Int,
-                Keyword::Float,
-                Keyword::Array,
-                Keyword::Bool,
-                Keyword::Iterable,
-                Keyword::MySelf,
-                Keyword::Void,
-                Keyword::Static,
-            ];
-            let mut return_type = String::new();
-            if let Some(keyword) = match_keyword(&return_token) {
-                // Check if it's a built in data type
-                if built_in_types.contains(&keyword) {
-                    return_type = return_token.lexeme;
-                } else {
-                    panic!("Return type is an unexpected keyword: {:?}", return_type);
-                }
-            } else {
-                // Find which use statement corresponds to this or if it's a native data type
-                return_type = self.find_type(&return_token);
-            }
-            Some(return_type)
+            Some(self.find_type(return_token))
         } else {
             None
         };
@@ -413,11 +460,19 @@ impl Parser {
         Function::new(name, stmts, params, return_type, visibility, false)
     }
 
-    fn find_type(&mut self, return_token: &Token) -> String {
+    fn find_type(&mut self, type_token: Token) -> String {
+        println!("Looking for type of {type_token:?}");
+        if match_data_type(&type_token).is_some() {
+            // Check if it's a built in data type
+            return type_token.lexeme;
+        }
+        if type_token.lexeme.starts_with('\\') {
+            return type_token.lexeme;
+        }
         let mut return_type = String::new();
         for use_stmt in self.uses.iter() {
             let ending = use_stmt.split('\\').last().expect("Empty use statement");
-            if return_token.lexeme.as_str() == ending {
+            if type_token.lexeme.as_str() == ending {
                 return_type.push_str(use_stmt.as_str());
                 break;
             }
@@ -425,8 +480,9 @@ impl Parser {
         if return_type.is_empty() {
             return_type.push_str(self.namespace.as_str());
             return_type.push('\\');
-            return_type.push_str(return_token.lexeme.as_str());
+            return_type.push_str(type_token.lexeme.as_str());
         }
+        println!("Found: {return_type:?}");
         return_type
     }
 

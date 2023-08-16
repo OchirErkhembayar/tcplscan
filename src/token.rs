@@ -36,6 +36,24 @@ lazy_static! {
         map.insert("bool", Keyword::Bool);
         map.insert("self", Keyword::MySelf);
         map.insert("void", Keyword::Void);
+        map.insert("readonly", Keyword::Readonly);
+        map
+    };
+}
+
+lazy_static! {
+    static ref BUILT_IN_DATA_TYPES: HashMap<&'static str, Keyword> = {
+        let mut map = HashMap::new();
+        map.insert("string", Keyword::String);
+        map.insert("array", Keyword::Array);
+        map.insert("int", Keyword::Int);
+        map.insert("float", Keyword::Float);
+        map.insert("bool", Keyword::Bool);
+        map.insert("self", Keyword::MySelf);
+        map.insert("void", Keyword::Void);
+        map.insert("readonly", Keyword::Readonly);
+        map.insert("iterable", Keyword::Iterable);
+        map.insert("static", Keyword::Static);
         map
     };
 }
@@ -45,6 +63,13 @@ pub fn match_keyword(token: &Token) -> Option<Keyword> {
         return None;
     }
     KEYWORDS.get(token.lexeme.as_str()).copied()
+}
+
+pub fn match_data_type(token: &Token) -> Option<Keyword> {
+    if token.token_type != TokenType::Identifier {
+        return None;
+    }
+    BUILT_IN_DATA_TYPES.get(token.lexeme.as_str()).copied()
 }
 
 #[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]
@@ -77,6 +102,7 @@ pub enum Keyword {
     Bool,
     MySelf,
     Void,
+    Readonly,
 }
 
 #[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]

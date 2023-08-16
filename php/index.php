@@ -4,58 +4,27 @@ declare(strict_types=1);
 
 namespace Foo\Baz;
 
-use Baz\Bar as Alias;
+use Foo\Types\MyType;
 use Foob\NotAlias;
 
 class Bar 
 {
+    readonly string $foo;
+
+    static string $var;
+
+    static $boo;
+
+    static MyType $kaowefk;
+
+    private readonly MyType $kaepwo;
+
+    private static ReturnMe $foobary;
+
     public function __construct(
         private readonly string $bar,
         private readonly string $foobz,
     ) {}
-
-    public function baz(): void
-    {
-        $lol = true;
-        if ($lol) {
-            echo "foo!";
-        } elseif (1) {
-            echo "Bar!";
-        } elseif (2) {
-            echo "Two!";
-        } else {
-            echo "Else!";
-        }
-        echo "\n";
-    }
-
-    function noReturn() {}
-
-    function returnMe(): ReturnMe
-    {
-        return new ReturnMe();
-    }
-
-    /**
-     * @return string
-     * @throws \RuntimeException
-     */
-    private function zab(string $abz, array $baris): string
-    {
-        throw new \RuntimeException("I love hard to debug code!");
-        try {
-            throw new \Exception("Don't throw exceptions, kids.");
-        } catch (\Exception $exception) {
-            echo "Very bad.";
-        }
-        for ($i = 0; $i < 5; $i++) {
-            echo $i;
-        }
-        foreach ($baris as $bari) {
-            \var_dump($bari);
-        }
-        return $abz;
-    }
 
     private function switcheroo($i): void
     {
