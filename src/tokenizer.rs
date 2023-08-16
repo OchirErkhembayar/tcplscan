@@ -304,7 +304,6 @@ impl<'a> Tokenizer<'a> {
                 todo!();
             }
         };
-        println!("Token: {:?}", token);
 
         Some(token)
     }

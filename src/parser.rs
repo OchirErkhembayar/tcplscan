@@ -73,7 +73,6 @@ impl Class {
         if let Some(return_type) = &function.return_type {
             if return_type.chars().nth(0).unwrap().is_uppercase() {
                 if !self.dependencies.contains(return_type) {
-                    println!("Adding dependency: {return_type}");
                     self.dependencies.push(return_type.to_owned());
                 }
             }
@@ -270,7 +269,6 @@ impl Parser {
                     if let Some(token_type) = match_keyword(&token) {
                         match token_type {
                             Keyword::Namespace => {
-                                println!("Namespace: {:?}", self.peek());
                                 self.namespace = self.next_token().lexeme;
                                 continue;
                             }
@@ -367,7 +365,6 @@ impl Parser {
             Some(keyword) => keyword,
             None => return,
         };
-        println!("Keyword: {:?}", keyword);
         match keyword {
             Keyword::Const => self.synchronize(),
             Keyword::Function => class.add_fn(self.function(visibility)),
@@ -375,7 +372,7 @@ impl Parser {
                 let token = self.next_token();
                 match self.dependency(token) {
                     Some(dependency) => class.dependencies.push(dependency),
-                    None => self.synchronize(),
+                    None => return,
                 }
             }
             Keyword::Static => {
@@ -396,14 +393,13 @@ impl Parser {
                         return;
                     },
                 };
-                println!("The keyword inside static: {:?}", keyword);
                 if keyword == Keyword::Function {
                     class.add_fn(self.function(Visibility::Public));
                     return;
                 }
                 // ignore built in data types, not a dependency
                 if match_data_type(&token).is_some() {
-                    self.synchronize();
+                    return;
                 }
                 class.dependencies.push(self.find_type(token));
             }
@@ -461,7 +457,6 @@ impl Parser {
     }
 
     fn find_type(&mut self, type_token: Token) -> String {
-        println!("Looking for type of {type_token:?}");
         if match_data_type(&type_token).is_some() {
             // Check if it's a built in data type
             return type_token.lexeme;
@@ -482,7 +477,6 @@ impl Parser {
             return_type.push('\\');
             return_type.push_str(type_token.lexeme.as_str());
         }
-        println!("Found: {return_type:?}");
         return_type
     }
 

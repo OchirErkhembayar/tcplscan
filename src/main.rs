@@ -80,7 +80,6 @@ fn read_dir(dir_entry: ReadDir, files: &mut Vec<RawFile>) {
                 })
                 .chars()
                 .collect::<Vec<_>>();
-            println!("{:?}", &path);
             let now = SystemTime::now();
             let accessed = metadata.accessed().unwrap_or_else(|err| {
                 eprintln!("ERROR: Failed to read accessed date, {err}");
@@ -107,8 +106,6 @@ fn read_dir(dir_entry: ReadDir, files: &mut Vec<RawFile>) {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-
-    println!("{:?}", args);
 
     let path = args.get(1).unwrap_or_else(|| {
         eprintln!("ERROR: Please input file path to scan");
@@ -138,6 +135,7 @@ fn main() {
 
     let mut parser = Parser::new();
     raw_files.iter().for_each(|file| {
+        println!("Scanning and parsing: {}", file.path);
         let tokens = Tokenizer::new(&file.content).collect::<VecDeque<_>>();
         let line = match tokens.back() {
             Some(token) => token.line,
@@ -160,9 +158,6 @@ fn main() {
     println!("* ---------- *");
     for (i, file) in files.iter().take(top_files).enumerate() {
         let class = &file.class;
-        if class.dependencies.is_empty() {
-            continue;
-        }
         println!("{}. {}", i + 1, class.name);
         println!("Last accessed {} hours ago", file.last_accessed);
         println!("Path: {}", file.path);
