@@ -67,7 +67,6 @@ fn read_dir(dir_entry: ReadDir, files: &mut Vec<RawFile>) {
                 .extension()
                 .is_some_and(|extension| extension != "php")
             {
-                println!("Skipping path: {:?}", path);
                 return;
             }
             let content = fs::read_to_string(&path)
@@ -131,11 +130,18 @@ fn main() {
     let mut files: Vec<File> = Vec::new();
     let mut raw_files: Vec<RawFile> = Vec::new();
 
+    let now = SystemTime::now();
     read_dir(dir_entry, &mut raw_files);
+    let diff = now.elapsed().unwrap().as_millis() as f64;
+    println!(
+        "Finished reading {} files in {}.",
+        raw_files.len(),
+        diff / 1000.0
+    );
 
     let mut parser = Parser::new();
+    let now = SystemTime::now();
     raw_files.iter().for_each(|file| {
-        println!("Scanning and parsing: {}", file.path);
         let tokens = Tokenizer::new(&file.content).collect::<VecDeque<_>>();
         let line = match tokens.back() {
             Some(token) => token.line,
@@ -145,13 +151,21 @@ fn main() {
         let file = File::new(file.path.as_str(), class, line, file.last_accessed);
         files.push(file);
     });
-    println!("Finished scanning {} files.", files.len());
+    let diff = now.elapsed().unwrap().as_millis() as f64;
+    println!(
+        "Finished scanning {} files in {} seconds.",
+        files.len(),
+        diff / 1000.0
+    );
 
+    let now = SystemTime::now();
     files.sort_by(|a, b| {
         b.class
             .average_complexity()
             .total_cmp(&a.class.average_complexity())
     });
+    let diff = now.elapsed().unwrap().as_millis() as f64;
+    println!("Sorted {} files in {} seconds.", files.len(), diff / 1000.0);
 
     println!();
     println!("Top files");
