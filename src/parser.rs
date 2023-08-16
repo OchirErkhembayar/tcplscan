@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    token::{match_keyword, Keyword, TokenType, match_data_type},
+    token::{match_data_type, match_keyword, Keyword, TokenType},
     tokenizer::Token,
 };
 
@@ -250,7 +250,10 @@ impl Parser {
     }
 
     fn synchronize(&mut self) {
-        while self.peek().is_some_and(|t| t.token_type != TokenType::Semicolon) {
+        while self
+            .peek()
+            .is_some_and(|t| t.token_type != TokenType::Semicolon)
+        {
             self.next_token();
         }
         self.next_token();
@@ -342,7 +345,7 @@ impl Parser {
         }
         class
     }
-    
+
     fn visibility(&mut self, class: &mut Class) {
         let token = self.next_token();
         if let Some(keyword) = match_keyword(&token) {
@@ -391,7 +394,7 @@ impl Parser {
                         }
                         class.dependencies.push(self.find_type(token));
                         return;
-                    },
+                    }
                 };
                 if keyword == Keyword::Function {
                     class.add_fn(self.function(Visibility::Public));
@@ -403,11 +406,9 @@ impl Parser {
                 }
                 class.dependencies.push(self.find_type(token));
             }
-            _ => {
-                match self.dependency(token) {
-                    Some(dependency) => class.dependencies.push(dependency),
-                    None => self.synchronize(),
-                }
+            _ => match self.dependency(token) {
+                Some(dependency) => class.dependencies.push(dependency),
+                None => self.synchronize(),
             },
         }
     }
