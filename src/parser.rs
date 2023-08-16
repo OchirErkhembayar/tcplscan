@@ -71,14 +71,18 @@ impl Class {
 
     fn add_fn(&mut self, function: Function) {
         if let Some(return_type) = &function.return_type {
-            if return_type.chars().next().unwrap().is_uppercase()
-                && !self.dependencies.contains(return_type)
-            {
-                self.dependencies.push(return_type.to_owned());
-            }
+            self.add_dependency(return_type.to_owned());
         }
 
         self.functions.push(function);
+    }
+
+    fn add_dependency(&mut self, dependency: String) {
+        if dependency.chars().next().unwrap().is_uppercase()
+            && !self.dependencies.contains(&dependency)
+        {
+            self.dependencies.push(dependency.to_owned());
+        }
     }
 
     pub fn highest_complexity_function(&self) -> usize {
@@ -275,6 +279,8 @@ impl Parser {
                                 self.namespace = self.next_token().lexeme;
                                 continue;
                             }
+                            // When adding these as dependencies need to switch it back from alias
+                            // to actual type
                             Keyword::Use => {
                                 let name = self.next_token().lexeme;
                                 if self.next_matches_keywords(&[Keyword::As]) {
@@ -294,17 +300,6 @@ impl Parser {
                                 return self.class(true);
                             }
                             Keyword::Class => {
-                                // Todo
-                                // 1. class name
-                                // 2. properties
-                                //    - private/public/protected/ NOT GIVEN (public)
-                                //    - readonly?
-                                //    - static?
-                                //    - type
-                                //    - name
-                                //    ; semicolon
-                                // 3. constructor -> potentially more promoted properties
-                                // 4. Methods
                                 return self.class(false);
                             }
                             _ => continue,
@@ -337,100 +332,129 @@ impl Parser {
         if self.next_matches_keywords(&[Keyword::Extends]) {
             self.next_token();
             let extends = self.next_token();
-            class.extends = Some(self.find_type(extends));
+            class.extends = Some(self.find_type(&extends));
         }
         self.next_token();
         while !self.brackets.is_empty() {
-            self.visibility(&mut class);
+            self.statement(&mut class);
+        }
+        for usage in self.uses.iter() {
+            class.add_dependency(usage.to_owned());
         }
         class
     }
 
-    fn visibility(&mut self, class: &mut Class) {
+    fn statement(&mut self, class: &mut Class) {
         let token = self.next_token();
         if let Some(keyword) = match_keyword(&token) {
             match keyword {
-                Keyword::Abstract => self.visibility(class),
-                Keyword::Visibility(visibility) => {
-                    let token = self.next_token();
-                    if match_keyword(&token).is_some() {
-                        self.match_keyword(class, visibility, token);
-                    }
-                }
-                Keyword::Use => (),
-                _ => self.match_keyword(class, Visibility::Public, token),
+                Keyword::Abstract => self.statement(class),
+                Keyword::Use => class.add_dependency(self.find_type(&token)),
+                _ => self.match_keyword(class, token),
             };
         }
     }
 
-    fn match_keyword(&mut self, class: &mut Class, visibility: Visibility, token: Token) {
-        let keyword = match match_keyword(&token) {
+    fn match_keyword(&mut self, class: &mut Class, token: Token) {
+        let mut token = token;
+        let mut keyword = match match_keyword(&token) {
             Some(keyword) => keyword,
             None => return,
         };
+        let visibility = if let Keyword::Visibility(parsed_visiblity) = keyword {
+            token = self.next_token();
+            // If this is a type we're returning early
+            if let Some(data_type) = self.parse_type(&token) {
+                class.add_dependency(data_type);
+                return;
+            }
+            keyword = match match_keyword(&token) {
+                Some(keyword) => keyword,
+                None => return,
+            };
+            parsed_visiblity
+        } else {
+            Visibility::Public
+        };
+        // const, readonly, static, function, type
         match keyword {
+            // Handle this later
             Keyword::Const => self.synchronize(),
-            Keyword::Function => class.add_fn(self.function(visibility)),
             Keyword::Readonly => {
                 let token = self.next_token();
-                if let Some(dependency) = self.dependency(token) {
-                    class.dependencies.push(dependency);
+                // Must be a type
+                if let Some(dependency) = self.parse_type(&token) {
+                    class.add_dependency(dependency);
                 }
             }
             Keyword::Static => {
+                // Ignore the static token
                 let token = self.next_token();
                 let keyword = match match_keyword(&token) {
                     Some(keyword) => keyword,
                     None => {
                         // it's a type
-                        if match_data_type(&token).is_some() {
-                            // Ignore built in data types
-                            return;
+                        if let Some(custom_type) = self.parse_type(&token) {
+                            class.add_dependency(custom_type);
                         }
-                        if token.lexeme.starts_with('$') {
-                            // static $foo;
-                            return;
-                        }
-                        class.dependencies.push(self.find_type(token));
                         return;
                     }
                 };
                 if keyword == Keyword::Function {
-                    class.add_fn(self.function(Visibility::Public));
+                    let function = self.function(Visibility::Public, class);
+                    class.add_fn(function);
                     return;
                 }
-                // ignore built in data types, not a dependency
-                if match_data_type(&token).is_some() {
-                    return;
+                if let Some(data_type) = self.parse_type(&token) {
+                    class.add_dependency(data_type);
                 }
-                class.dependencies.push(self.find_type(token));
             }
-            _ => match self.dependency(token) {
-                Some(dependency) => class.dependencies.push(dependency),
+            Keyword::Function => {
+                let function = self.function(visibility, class);
+                class.add_fn(function);
+            }
+            // Just a type
+            _ => match self.parse_type(&token) {
+                Some(dependency) => class.add_dependency(dependency),
                 None => self.synchronize(),
             },
         }
     }
 
-    fn dependency(&mut self, token: Token) -> Option<String> {
+    fn parse_type(&mut self, token: &Token) -> Option<String> {
         if token.lexeme.starts_with('$') {
             return None;
         }
-        if match_data_type(&token).is_some() {
+        if token.token_type == TokenType::Question {
+            return None;
+        }
+        if match_data_type(token).is_some() {
+            return None;
+        }
+        if match_keyword(token).is_some() {
             return None;
         }
         Some(self.find_type(token))
     }
 
-    fn function(&mut self, visibility: Visibility) -> Function {
+    fn function(&mut self, visibility: Visibility, class: &mut Class) -> Function {
         let name = self.next_token().lexeme;
+        let depth = self.brackets.len();
+        self.next_token();
         let mut params = 0;
-        while !self.next_matches_token_types(&[TokenType::RightParen]) {
-            if self.next_token().lexeme.starts_with('$') {
+        while self.brackets.len() != depth {
+            let token = self.next_token();
+            if [TokenType::Comma, TokenType::RightParen].contains(&token.token_type) {
+                continue;
+            }
+            if token.lexeme.starts_with('$') {
                 params += 1;
+                continue;
+            }
+            if let Some(dependency) = self.parse_type(&token) {
+                class.add_dependency(dependency);
             }
         }
-        self.next_token();
         let return_type = if self.next_matches_token_types(&[TokenType::Colon]) {
             self.next_token();
             let mut return_token = self.next_token();
@@ -438,7 +462,7 @@ impl Parser {
             if return_token.token_type == TokenType::Question {
                 return_token = self.next_token();
             }
-            Some(self.find_type(return_token))
+            Some(self.find_type(&return_token))
         } else {
             None
         };
@@ -456,13 +480,13 @@ impl Parser {
         Function::new(name, stmts, params, return_type, visibility, false)
     }
 
-    fn find_type(&mut self, type_token: Token) -> String {
-        if match_data_type(&type_token).is_some() {
+    fn find_type(&mut self, type_token: &Token) -> String {
+        if match_data_type(type_token).is_some() {
             // Check if it's a built in data type
-            return type_token.lexeme;
+            return type_token.lexeme.to_owned();
         }
         if type_token.lexeme.starts_with('\\') {
-            return type_token.lexeme;
+            return type_token.lexeme.to_owned();
         }
         let mut return_type = String::new();
         for use_stmt in self.uses.iter() {

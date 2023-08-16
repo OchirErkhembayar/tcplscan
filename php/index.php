@@ -14,10 +14,8 @@ class Bar
     static string $var;
 
     static $boo;
-
-    static MyType $kaowefk;
-
-    private readonly MyType $kaepwo;
+    
+    private MyType $type;
 
     private static ReturnMe $foobary;
 
