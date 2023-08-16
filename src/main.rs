@@ -1,7 +1,7 @@
 use crate::parser::Parser;
 use parser::Class;
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     env,
     fs::{self, ReadDir},
     process,
@@ -13,6 +13,7 @@ mod git;
 mod parser;
 mod token;
 mod tokenizer;
+mod types;
 
 #[derive(Debug)]
 struct File {
@@ -103,6 +104,8 @@ fn read_dir(dir_entry: ReadDir, files: &mut Vec<RawFile>) {
     });
 }
 
+type ClassDependencyIndex = HashMap<String, usize>;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -147,9 +150,10 @@ fn main() {
             Some(token) => token.line,
             None => 0,
         };
-        let class = parser.parse_file(tokens);
-        let file = File::new(file.path.as_str(), class, line, file.last_accessed);
-        files.push(file);
+        if let Some(class) = parser.parse_file(tokens) {
+            let file = File::new(file.path.as_str(), class, line, file.last_accessed);
+            files.push(file);
+        }
     });
     let diff = now.elapsed().unwrap().as_millis() as f64;
     println!(
@@ -171,6 +175,21 @@ fn main() {
         diff / 1000.0
     );
 
+    let now = SystemTime::now();
+    let mut index = ClassDependencyIndex::new();
+    for file in files.iter() {
+        let class = &file.class;
+        index.entry(class.name.to_owned()).or_insert(0);
+        for dependency in class.dependencies.iter() {
+            index
+                .entry(dependency.to_owned())
+                .and_modify(|c| *c += 1)
+                .or_insert(1);
+        }
+    }
+    let diff = now.elapsed().unwrap().as_millis() as f64;
+    println!("Indexed classes in {:.4} seconds", diff / 1000.0);
+
     println!();
     println!("Top files");
     println!("* ---------- *");
@@ -180,10 +199,11 @@ fn main() {
         println!("Last accessed {} hours ago", file.last_accessed);
         println!("Path: {}", file.path);
         println!("Lines: {}", file.lines);
+        println!("Used in {} places", index.get(&class.name).unwrap());
         if class.dependencies.is_empty() {
             println!("No dependencies");
         } else {
-            println!("Dependencies");
+            println!("{} dependencies", class.dependencies.len());
             println!("* ------ *");
             for dependency in &class.dependencies {
                 println!("Dependency: {dependency}");

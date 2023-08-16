@@ -50,6 +50,18 @@ pub enum StmtType {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
+pub struct Alias {
+    name: String,
+    alias: String,
+}
+
+impl Alias {
+    fn new(name: String, alias: String) -> Self {
+        Self { name, alias }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Class {
     pub name: String,
     pub functions: Vec<Function>,
@@ -181,6 +193,7 @@ pub struct Parser {
     pub classes: Vec<Class>,
     namespace: String,
     uses: Vec<String>,
+    aliases: Vec<Alias>,
 }
 
 impl Parser {
@@ -191,6 +204,7 @@ impl Parser {
             classes: Vec::new(),
             namespace: String::new(),
             uses: Vec::new(),
+            aliases: Vec::new(),
         }
     }
 
@@ -265,11 +279,11 @@ impl Parser {
 }
 
 impl Parser {
-    pub fn parse_file(&mut self, tokens: VecDeque<Token>) -> Class {
-        let mut class = Class::new();
+    pub fn parse_file(&mut self, tokens: VecDeque<Token>) -> Option<Class> {
         self.tokens = tokens;
         self.brackets.clear();
         self.uses.clear();
+        self.aliases.clear();
         while let Some(token) = self.next_token_opt() {
             match token.token_type {
                 TokenType::Identifier => {
@@ -285,22 +299,25 @@ impl Parser {
                                 let name = self.next_token().lexeme;
                                 if self.next_matches_keywords(&[Keyword::As]) {
                                     self.next_token();
-                                    let alias = self.next_token().lexeme;
+                                    let aliased = self.next_token().lexeme;
                                     let mut split: Vec<_> = name.split('\\').collect();
                                     split.pop();
-                                    split.push(alias.as_str());
+                                    split.push(aliased.as_str());
+                                    split.join("\\");
                                     self.uses.push(split.join("\\"));
+                                    self.aliases
+                                        .push(Alias::new(name.to_owned(), split.join("\\")));
+                                    continue;
                                 }
                                 self.uses.push(name);
                                 continue;
                             }
                             Keyword::Abstract => {
-                                class.is_abstract = true;
                                 self.next_token();
-                                return self.class(true);
+                                return Some(self.class(true));
                             }
                             Keyword::Class => {
-                                return self.class(false);
+                                return Some(self.class(false));
                             }
                             _ => continue,
                         }
@@ -320,7 +337,7 @@ impl Parser {
                 _ => continue,
             };
         }
-        class
+        None
     }
 
     fn class(&mut self, is_abstract: bool) -> Class {
@@ -334,12 +351,26 @@ impl Parser {
             let extends = self.next_token();
             class.extends = Some(self.find_type(&extends));
         }
+        if self.next_matches_keywords(&[Keyword::Implements]) {
+            self.next_token();
+            let implements = self.next_token();
+            class.extends = Some(self.find_type(&implements));
+        }
         self.next_token();
         while !self.brackets.is_empty() {
             self.statement(&mut class);
         }
         for usage in self.uses.iter() {
-            class.add_dependency(usage.to_owned());
+            if !class.dependencies.contains(usage) {
+                class.add_dependency(usage.to_owned());
+            }
+        }
+        for alias in self.aliases.iter() {
+            for dependency in class.dependencies.iter_mut() {
+                if dependency == &alias.alias {
+                    *dependency = alias.name.to_owned();
+                }
+            }
         }
         class
     }
@@ -444,7 +475,9 @@ impl Parser {
         let mut params = 0;
         while self.brackets.len() != depth {
             let token = self.next_token();
-            if [TokenType::Comma, TokenType::RightParen].contains(&token.token_type) {
+            if [TokenType::Comma, TokenType::RightParen, TokenType::Equal]
+                .contains(&token.token_type)
+            {
                 continue;
             }
             if token.lexeme.starts_with('$') {
@@ -488,20 +521,20 @@ impl Parser {
         if type_token.lexeme.starts_with('\\') {
             return type_token.lexeme.to_owned();
         }
-        let mut return_type = String::new();
+        let mut data_type = String::new();
         for use_stmt in self.uses.iter() {
             let ending = use_stmt.split('\\').last().expect("Empty use statement");
             if type_token.lexeme.as_str() == ending {
-                return_type.push_str(use_stmt.as_str());
+                data_type.push_str(use_stmt.as_str());
                 break;
             }
         }
-        if return_type.is_empty() {
-            return_type.push_str(self.namespace.as_str());
-            return_type.push('\\');
-            return_type.push_str(type_token.lexeme.as_str());
+        if data_type.is_empty() {
+            data_type.push_str(self.namespace.as_str());
+            data_type.push('\\');
+            data_type.push_str(type_token.lexeme.as_str());
         }
-        return_type
+        data_type
     }
 
     fn parse_stmt(&mut self) -> Option<Stmt> {

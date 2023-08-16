@@ -37,6 +37,10 @@ lazy_static! {
         map.insert("self", Keyword::MySelf);
         map.insert("void", Keyword::Void);
         map.insert("readonly", Keyword::Readonly);
+        map.insert("mixed", Keyword::Mixed);
+        map.insert("true", Keyword::Bool);
+        map.insert("false", Keyword::Bool);
+        map.insert("implements", Keyword::Implements);
         map
     };
 }
@@ -54,6 +58,9 @@ lazy_static! {
         map.insert("readonly", Keyword::Readonly);
         map.insert("iterable", Keyword::Iterable);
         map.insert("static", Keyword::Static);
+        map.insert("mixed", Keyword::Mixed);
+        map.insert("true", Keyword::Bool);
+        map.insert("false", Keyword::Bool);
         map
     };
 }
@@ -103,6 +110,8 @@ pub enum Keyword {
     MySelf,
     Void,
     Readonly,
+    Mixed,
+    Implements,
 }
 
 #[derive(Debug, PartialEq, Hash, Eq, Copy, Clone)]
