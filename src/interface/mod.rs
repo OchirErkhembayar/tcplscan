@@ -75,6 +75,7 @@ pub fn run_program(index: &ClassDependencyIndex, files: &mut [File]) {
         println!("2. See view options");
         println!("3. Update view options");
         println!("4. Search for a file");
+        println!("5. Resort files");
         println!("8. Exit\n");
 
         let option = match io::get_usize_input("Enter an option") {
@@ -92,6 +93,8 @@ pub fn run_program(index: &ClassDependencyIndex, files: &mut [File]) {
                 display_view_options(&view_options);
             }
             3 => update_view_options(&mut view_options),
+            4 => search(files, index, &mut view_options),
+            5 => re_sort(files, index),
             8 => exit(),
             _ => io::display_error("That's not right, try again!"),
         }
@@ -189,12 +192,22 @@ fn display_view_options(view_options: &ViewOptions) {
     println!("Display function statements: {}", view_options.function_stmts);
 }
 
+fn search(files: &[File], index: &ClassDependencyIndex, view_options: &mut ViewOptions) {
+    let query = match io::get_string_input("Enter query") {
+        Ok(query) => query,
+        Err(_) => return,
+    };
+    view_options.query = Some(query);
+    display_files(files, index, view_options);
+    view_options.query = None;
+}
+
 pub fn display_files(files: &[File], index: &ClassDependencyIndex, view_options: &ViewOptions) {
     println!();
     io::display_title("Top Files");
     for (i, file) in files.iter().filter(|file| {
         if let Some(query) = &view_options.query {
-            file.class.name.contains(query.as_str())
+            file.class.name.to_lowercase().contains(query.to_lowercase().as_str())
         } else {
             true
         }
@@ -237,7 +250,17 @@ pub fn display_files(files: &[File], index: &ClassDependencyIndex, view_options:
             }
         }
         println!("Abstract: {}", class.is_abstract);
-        for function in class.functions.iter() {
+        let functions = match view_options.num_functions {
+            Some(num) => {
+                if class.functions.len() >= num {
+                    &class.functions[..num]
+                } else {
+                    &class.functions
+                }
+            },
+            None => &class.functions,
+        };
+        for function in functions {
             println!("* -------- *");
             println!("  Name: {}", function.name);
             println!("  Visibility: {}", function.visibility);
@@ -260,6 +283,25 @@ pub fn display_files(files: &[File], index: &ClassDependencyIndex, view_options:
             }
         }
         println!("* ---------- *");
+    }
+}
+
+fn re_sort(files: &mut [File], index: &ClassDependencyIndex) {
+    io::display_title("Sort Options");
+    println!("  1. Average cyclomatic complexity of a class");
+    println!("  2. Usages of a class");
+    println!("  3. Number of dependencies of a class");
+
+    let input = match io::get_usize_input("Choose a sorting option") {
+        Ok(num) => num,
+        Err(_) => return,
+    };
+
+    match input {
+        1 => sort_files(files, SortType::Complexity, index),
+        2 => sort_files(files, SortType::Uses, index),
+        3 => sort_files(files, SortType::Dependencies, index),
+        _ => io::display_error("Wrong input"),
     }
 }
 
