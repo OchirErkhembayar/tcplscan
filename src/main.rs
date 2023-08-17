@@ -1,15 +1,11 @@
 use indexing::{ClassDependencyIndex, File};
 
-use crate::{interface::run_program, indexing::index};
-use std::{
-    env,
-    fs,
-    process,
-};
+use crate::{indexing::index, interface::run_program};
+use std::{env, fs, process};
 
 mod git;
-mod interface;
 mod indexing;
+mod interface;
 
 fn run() -> Result<(), ()> {
     let args: Vec<String> = env::args().collect();
@@ -42,4 +38,3 @@ fn error(msg: &str, line: usize) {
     eprintln!("ERR: line: {line} {msg}");
     process::exit(1);
 }
-

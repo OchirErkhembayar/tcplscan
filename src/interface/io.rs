@@ -1,11 +1,10 @@
-
 use colored::Colorize;
 
 pub fn display_sucess(message: &str) {
     println!("\n{}\n", message.green());
 }
 
-pub fn display_danger(message: &str) {
+pub fn _display_danger(message: &str) {
     println!("\n{}\n", message.red());
 }
 
@@ -21,7 +20,7 @@ pub fn display_error(message: &str) {
     println!("\nError: {}\n", message.red());
 }
 
-pub fn display_list(items: &Vec<String>) {
+pub fn display_list(items: &[String]) {
     for (i, item) in items.iter().enumerate() {
         println!("  {}. {item}", i + 1);
     }
@@ -54,7 +53,7 @@ pub fn get_usize_input(message: &str) -> Result<usize, String> {
     Ok(input)
 }
 
-pub fn get_positive_f32_input(message: &str) -> Result<f32, String> {
+pub fn _get_positive_f32_input(message: &str) -> Result<f32, String> {
     println!("{}", message.blue());
     let mut input = String::new();
     let input = match std::io::stdin().read_line(&mut input) {

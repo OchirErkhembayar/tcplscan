@@ -1,14 +1,15 @@
-use std::{fmt::Display, time::SystemTime, process};
 use colored::Colorize;
+use std::{fmt::Display, process, time::SystemTime};
 
-use crate::{File, ClassDependencyIndex};
+use crate::{ClassDependencyIndex, File};
 
 mod io;
 
 pub enum SortType {
-    Complexity,
+    ClassComplexity,
     Uses,
     Dependencies,
+    FunctionComplexity,
 }
 
 pub struct ViewOptions {
@@ -29,10 +30,6 @@ impl ViewOptions {
             query: None,
         }
     }
-
-    fn query(&mut self, query: String) {
-        self.query = Some(query);
-    }
 }
 
 impl Display for SortType {
@@ -43,25 +40,25 @@ impl Display for SortType {
             match self {
                 SortType::Dependencies => "dependencies",
                 SortType::Uses => "uses",
-                SortType::Complexity => "complexity",
+                SortType::ClassComplexity => "class complexity",
+                SortType::FunctionComplexity => "function complexity",
             }
         )
     }
 }
 
 pub fn run_program(index: &ClassDependencyIndex, files: &mut [File]) {
-    let sort_type = SortType::Complexity;
+    let sort_type = SortType::ClassComplexity;
     println!();
     println!("Sorting by: {sort_type}");
     let now = SystemTime::now();
     let diff = now.elapsed().unwrap().as_millis() as f64;
-    sort_files(files, sort_type, &index);
+    sort_files(files, sort_type, index);
     println!(
         "Sorted {} files in {:.4} seconds.",
         files.len(),
         diff / 1000.0
     );
-
     let mut view_options = ViewOptions::default();
 
     io::display_title("TCPL Scanner");
@@ -75,7 +72,7 @@ pub fn run_program(index: &ClassDependencyIndex, files: &mut [File]) {
         println!("2. See view options");
         println!("3. Update view options");
         println!("4. Search for a file");
-        println!("5. Resort files");
+        println!("5. Re-sort files");
         println!("8. Exit\n");
 
         let option = match io::get_usize_input("Enter an option") {
@@ -121,10 +118,11 @@ fn update_view_options(view_options: &mut ViewOptions) {
 
         match option {
             1 => {
-                let num = match io::get_usize_input("Choose how many of the top files you want to see") {
-                    Ok(num) => num,
-                    Err(_) => continue,
-                };
+                let num =
+                    match io::get_usize_input("Choose how many of the top files you want to see") {
+                        Ok(num) => num,
+                        Err(_) => continue,
+                    };
                 view_options.top_files = num;
                 break;
             }
@@ -142,10 +140,11 @@ fn update_view_options(view_options: &mut ViewOptions) {
                 println!();
                 println!("1. Yes");
                 println!("2. No (see all functions)");
-                let num = match io::get_usize_input("Would you a fixed number of methods per class?") {
-                    Ok(num) => num,
-                    Err(_) => continue,
-                };
+                let num =
+                    match io::get_usize_input("Would you a fixed number of methods per class?") {
+                        Ok(num) => num,
+                        Err(_) => continue,
+                    };
                 match num {
                     2 => {
                         view_options.num_functions = None;
@@ -157,10 +156,11 @@ fn update_view_options(view_options: &mut ViewOptions) {
                         continue;
                     }
                 }
-                let num = match io::get_usize_input("Would you a fixed number of methods per class?") {
-                    Ok(num) => num,
-                    Err(_) => continue,
-                };
+                let num =
+                    match io::get_usize_input("Would you a fixed number of methods per class?") {
+                        Ok(num) => num,
+                        Err(_) => continue,
+                    };
                 view_options.num_functions = Some(num);
                 break;
             }
@@ -189,7 +189,10 @@ fn display_view_options(view_options: &ViewOptions) {
         None => "All".to_string(),
     };
     println!("Functions per class: {}", fn_per_class);
-    println!("Display function statements: {}", view_options.function_stmts);
+    println!(
+        "Display function statements: {}",
+        view_options.function_stmts
+    );
 }
 
 fn search(files: &[File], index: &ClassDependencyIndex, view_options: &mut ViewOptions) {
@@ -205,13 +208,21 @@ fn search(files: &[File], index: &ClassDependencyIndex, view_options: &mut ViewO
 pub fn display_files(files: &[File], index: &ClassDependencyIndex, view_options: &ViewOptions) {
     println!();
     io::display_title("Top Files");
-    for (i, file) in files.iter().filter(|file| {
-        if let Some(query) = &view_options.query {
-            file.class.name.to_lowercase().contains(query.to_lowercase().as_str())
-        } else {
-            true
-        }
-    }).take(view_options.top_files).enumerate() {
+    for (i, file) in files
+        .iter()
+        .filter(|file| {
+            if let Some(query) = &view_options.query {
+                file.class
+                    .name
+                    .to_lowercase()
+                    .contains(query.to_lowercase().as_str())
+            } else {
+                true
+            }
+        })
+        .take(view_options.top_files)
+        .enumerate()
+    {
         let class = &file.class;
         io::display_underlined_colored(format!("{}. {}", i + 1, class.name).as_str());
         println!("Last accessed {} hours ago", file.last_accessed);
@@ -257,7 +268,7 @@ pub fn display_files(files: &[File], index: &ClassDependencyIndex, view_options:
                 } else {
                     &class.functions
                 }
-            },
+            }
             None => &class.functions,
         };
         for function in functions {
@@ -291,6 +302,7 @@ fn re_sort(files: &mut [File], index: &ClassDependencyIndex) {
     println!("  1. Average cyclomatic complexity of a class");
     println!("  2. Usages of a class");
     println!("  3. Number of dependencies of a class");
+    println!("  4. Maximum method complexity");
 
     let input = match io::get_usize_input("Choose a sorting option") {
         Ok(num) => num,
@@ -298,16 +310,17 @@ fn re_sort(files: &mut [File], index: &ClassDependencyIndex) {
     };
 
     match input {
-        1 => sort_files(files, SortType::Complexity, index),
+        1 => sort_files(files, SortType::ClassComplexity, index),
         2 => sort_files(files, SortType::Uses, index),
         3 => sort_files(files, SortType::Dependencies, index),
+        4 => sort_files(files, SortType::FunctionComplexity, index),
         _ => io::display_error("Wrong input"),
     }
 }
 
 fn sort_files(files: &mut [File], sort_type: SortType, index: &ClassDependencyIndex) {
     match sort_type {
-        SortType::Complexity => {
+        SortType::ClassComplexity => {
             files.sort_by(|a, b| {
                 b.class
                     .average_complexity()
@@ -319,6 +332,13 @@ fn sort_files(files: &mut [File], sort_type: SortType, index: &ClassDependencyIn
         }
         SortType::Dependencies => {
             files.sort_by(|a, b| b.class.dependencies.len().cmp(&a.class.dependencies.len()));
+        }
+        SortType::FunctionComplexity => {
+            files.sort_by(|a, b| {
+                b.class
+                    .highest_complexity_function()
+                    .cmp(&a.class.highest_complexity_function())
+            });
         }
     }
 }

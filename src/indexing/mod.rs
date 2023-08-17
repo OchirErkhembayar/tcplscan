@@ -1,12 +1,17 @@
-use std::{collections::{HashMap, VecDeque}, fs::{ReadDir, self}, process, time::SystemTime};
+use std::{
+    collections::{HashMap, VecDeque},
+    fs::{self, ReadDir},
+    process,
+    time::SystemTime,
+};
 
 use crate::indexing::{parser::Parser, tokenizer::Tokenizer};
 
 use self::parser::Class;
 
+mod parser;
 mod token;
 mod tokenizer;
-mod parser;
 
 pub type ClassDependencyIndex = HashMap<String, usize>;
 
@@ -89,7 +94,6 @@ fn read_dir(dir_entry: ReadDir, files: &mut Vec<RawFile>) {
         }
     });
 }
-
 
 pub fn index(dir_entry: ReadDir) -> (ClassDependencyIndex, Vec<File>) {
     let mut files: Vec<File> = Vec::new();

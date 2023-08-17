@@ -1,7 +1,7 @@
 use std::process;
 
-use crate::indexing::token::TokenType;
 use crate::error;
+use crate::indexing::token::TokenType;
 
 #[derive(Debug, PartialEq)]
 pub struct Token {

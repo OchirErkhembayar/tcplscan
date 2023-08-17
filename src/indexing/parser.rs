@@ -358,7 +358,10 @@ impl Parser {
         }
         if self.next_matches_keywords(&[Keyword::Implements]) {
             self.next_token();
-            while self.peek().is_some_and(|t| t.token_type != TokenType::LeftBrace) {
+            while self
+                .peek()
+                .is_some_and(|t| t.token_type != TokenType::LeftBrace)
+            {
                 let implements = self.next_token();
                 if implements.token_type == TokenType::Comma {
                     continue;
