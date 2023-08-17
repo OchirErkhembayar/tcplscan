@@ -3,7 +3,7 @@ use std::process;
 use crate::error;
 use crate::indexing::token::TokenType;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub line: usize,

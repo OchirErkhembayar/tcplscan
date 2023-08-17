@@ -394,7 +394,10 @@ impl Parser {
         if let Some(keyword) = match_keyword(&token) {
             match keyword {
                 Keyword::Abstract => self.statement(class),
-                Keyword::Use => class.add_dependency(self.find_type(&token)),
+                Keyword::Use => {
+                    let token = self.next_token();
+                    class.add_dependency(self.find_type(&token));
+                }
                 _ => self.match_keyword(class, token),
             };
         }
