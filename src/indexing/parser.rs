@@ -4,7 +4,7 @@ use std::{
     process,
 };
 
-use crate::{
+use crate::indexing::{
     token::{match_data_type, match_keyword, Keyword, TokenType},
     tokenizer::Token,
 };
@@ -66,7 +66,7 @@ pub struct Class {
     pub name: String,
     pub functions: Vec<Function>,
     pub extends: Option<String>,
-    pub implements: Option<String>,
+    pub implements: Vec<String>,
     pub is_abstract: bool,
     pub dependencies: Vec<String>,
 }
@@ -77,7 +77,7 @@ impl Class {
             name: String::new(),
             functions: Vec::new(),
             extends: None,
-            implements: None,
+            implements: Vec::new(),
             is_abstract: false,
             dependencies: Vec::new(),
         }
@@ -321,6 +321,9 @@ impl Parser {
                             Keyword::Class => {
                                 return Some(self.class(false));
                             }
+                            Keyword::Trait => {
+                                return Some(self.class(false));
+                            }
                             _ => continue,
                         }
                     } else {
@@ -355,8 +358,13 @@ impl Parser {
         }
         if self.next_matches_keywords(&[Keyword::Implements]) {
             self.next_token();
-            let implements = self.next_token();
-            class.implements = Some(self.find_type(&implements));
+            while self.peek().is_some_and(|t| t.token_type != TokenType::LeftBrace) {
+                let implements = self.next_token();
+                if implements.token_type == TokenType::Comma {
+                    continue;
+                }
+                class.implements.push(implements.lexeme);
+            }
         }
         let depth = self.brackets.len();
         self.next_token();
