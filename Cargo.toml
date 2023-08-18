@@ -1,6 +1,6 @@
 [package]
 name = "tcplscan"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A tool to keep track of class complexity of a PHP project"
 repository = "https://github.com/OchirErkhembayar/tcplscan"
@@ -8,5 +8,4 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 colored = "2.0.4"
-git2 = "0.17.2"
 lazy_static = "1.4.0"
