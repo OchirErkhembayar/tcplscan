@@ -387,6 +387,9 @@ impl Parser {
             }
         }
         class
+            .functions
+            .sort_by_key(|f| std::cmp::Reverse(f.complexity()));
+        class
     }
 
     fn statement(&mut self, class: &mut Class) {

@@ -287,8 +287,7 @@ pub fn display_files(files: &[File], index: &ClassDependencyIndex, view_options:
             println!("  Param count: {}", function.params);
             println!("  Cyclomatic complexity: {}", function.complexity());
             if view_options.function_stmts {
-                let top_fns = view_options.num_functions.unwrap_or(10000);
-                for stmt in function.stmts.iter().take(top_fns) {
+                for stmt in function.stmts.iter() {
                     println!("  {:?}", stmt);
                 }
             }
