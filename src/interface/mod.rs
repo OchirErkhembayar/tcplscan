@@ -59,6 +59,7 @@ pub fn run_program(index: &ClassDependencyIndex, files: &mut [File]) {
         files.len(),
         diff / 1000.0
     );
+
     let mut view_options = ViewOptions::default();
 
     io::display_title("TCPL Scanner");
@@ -86,9 +87,7 @@ pub fn run_program(index: &ClassDependencyIndex, files: &mut [File]) {
 
         match option {
             1 => display_files(files, index, &view_options),
-            2 => {
-                display_view_options(&view_options);
-            }
+            2 => display_view_options(&view_options),
             3 => update_view_options(&mut view_options),
             4 => search(files, index, &mut view_options),
             5 => re_sort(files, index),

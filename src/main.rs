@@ -3,11 +3,10 @@ use indexing::{ClassDependencyIndex, File};
 use crate::{indexing::index, interface::run_program};
 use std::{env, fs, process};
 
-mod git;
 mod indexing;
 mod interface;
 
-fn run() -> Result<(), ()> {
+fn main() {
     let args: Vec<String> = env::args().collect();
 
     let path = args.get(1).unwrap_or_else(|| {
@@ -23,15 +22,6 @@ fn run() -> Result<(), ()> {
     let (index, mut files) = index(dir_entry);
 
     run_program(&index, &mut files);
-
-    Ok(())
-}
-
-fn main() {
-    match run() {
-        Ok(_) => process::exit(0),
-        Err(_) => process::exit(1),
-    }
 }
 
 fn error(msg: &str, line: usize) {
