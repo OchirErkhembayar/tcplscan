@@ -142,6 +142,7 @@ pub enum TokenType {
     Reference,
     Modulo,
     AtSign,
+    BinaryNegation,
 
     // One or two... or three... character tokens
     Bang,

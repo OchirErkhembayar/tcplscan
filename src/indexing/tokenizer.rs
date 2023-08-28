@@ -289,6 +289,7 @@ impl<'a> Tokenizer<'a> {
                     self.make_token(TokenType::Reference, "&".to_string())
                 }
             }
+            '~' => self.make_token(TokenType::BinaryNegation, "~".to_string()),
             '%' => self.make_token(TokenType::Modulo, "%".to_string()),
             '"' => self.string('"'),
             '\'' => self.string('\''),
