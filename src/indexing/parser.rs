@@ -228,6 +228,12 @@ impl Parser {
                     process::exit(1);
                 }
             }
+            TokenType::LeftBracket => {
+                if token_type != TokenType::RightBracket {
+                    eprintln!("Unmatched closing bracket: {:?}", token_type);
+                    process::exit(1);
+                }
+            }
             _ => {
                 panic!("This shouldn't happen :P");
             }
@@ -239,8 +245,10 @@ impl Parser {
         match token.token_type {
             TokenType::LeftParen => self.brackets.push_back(TokenType::LeftParen),
             TokenType::LeftBrace => self.brackets.push_back(TokenType::LeftBrace),
+            TokenType::LeftBracket => self.brackets.push_back(TokenType::LeftBracket),
             TokenType::RightParen => self.closing_bracket(TokenType::RightParen),
             TokenType::RightBrace => self.closing_bracket(TokenType::RightBrace),
+            TokenType::RightBracket => self.closing_bracket(TokenType::RightBracket),
             _ => (),
         }
         Some(token)
@@ -643,6 +651,13 @@ impl Parser {
             });
 
             match token.token_type {
+                TokenType::LeftBracket => {
+                    let depth = self.brackets.len() - 1;
+                    self.next_token();
+                    while self.brackets.len() != depth {
+                        self.next_token();
+                    }
+                }
                 TokenType::FatArrow => case_count += 1,
                 TokenType::RightBrace => {
                     if self.brackets.len() == depth {
