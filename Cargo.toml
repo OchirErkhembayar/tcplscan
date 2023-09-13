@@ -1,6 +1,6 @@
 [package]
 name = "tcplscan"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "A tool to keep track of class complexity of a PHP project"
 repository = "https://github.com/OchirErkhembayar/tcplscan"
