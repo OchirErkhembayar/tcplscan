@@ -571,7 +571,7 @@ impl Parser {
         let token = self.next_token();
         if token.token_type != TokenType::Identifier {
             // hack to get over things like $this->match()
-            if vec![TokenType::ColonColon, TokenType::ThinArrow].contains(&token.token_type) {
+            if [TokenType::ColonColon, TokenType::ThinArrow].contains(&token.token_type) {
                 self.next_token();
                 self.next_token();
                 self.next_token();
