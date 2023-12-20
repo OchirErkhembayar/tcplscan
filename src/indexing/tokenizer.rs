@@ -295,7 +295,7 @@ impl<'a> Tokenizer<'a> {
             '\'' => self.string('\''),
             '0'..='9' => self.number(),
             '@' => self.make_token(TokenType::AtSign, "@".to_string()),
-            '_' | 'a'..='z' | 'A'..='Z' | '$' | '\\' => self.identifier(char),
+            '_' | 'a'..='z' | 'A'..='Z' | '$' | '£' | '\\' => self.identifier(char),
             _ => {
                 println!(
                     "{char} line {}, peek next 2: {}{}",
